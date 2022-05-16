@@ -1,6 +1,8 @@
 import chisel3._
 import chisel3.util._
 
+import ALUOperationList._
+
 object InstructionList {
 	// Arithmetic Operation
 	val ADD     = BitPat("b000000 ????? ????? ????? 00000 100000")
@@ -74,12 +76,17 @@ class idu_in extends Bundle {
 }
 
 class idu_out extends Bundle {
-	val rs = UInt(5.W)
-	val rt = UInt(5.W)
-	val rd = UInt(5.W)
+	val rs  = UInt(5.W)
+	val rt  = UInt(5.W)
+	val rd  = UInt(5.W)
+	val imm = UInt(32.W)
 }
 
 class idu_contr extends Bundle {
+	val aluop    = UInt(4.W)
+	val hilo_en  = Bool()
+	val trans_hi = Bool()
+	val trans_lo = Bool()
 }
 
 class idu extends Module {
@@ -89,71 +96,59 @@ class idu extends Module {
 		val contr = Output(new idu_contr())
 	})
 
-	val status = ListLookup(io.in.inst, List(), Array(
-		// Arithmetic Operation
-		ADD     -> List(),
-		ADDI    -> List(),
-		ADDU    -> List(),
-		ADDIU   -> List(),
-		SUB     -> List(),
-		SUBU    -> List(),
-		SLT     -> List(),
-		SLTI    -> List(),
-		SLTU    -> List(),
-		SLTIU   -> List(),
-		DIV     -> List(),
-		DIVU    -> List(),
-		MULT    -> List(),
-		MULTU   -> List(),
-		// Logical Operation
-		AND     -> List(),
-		ANDI    -> List(),
-		LUI     -> List(),
-		NOR     -> List(),
-		OR      -> List(),
-		ORI     -> List(),
-		XOR     -> List(),
-		XORI    -> List(),
-		// Shift Operation
-		SLLV    -> List(),
-		SLL     -> List(),
-		SRAV    -> List(),
-		SRA     -> List(),
-		SRLV    -> List(),
-		SRL     -> List(),
-		// Branch & Jump
-		BEQ     -> List(),
-		BNE     -> List(),
-		BGEZ    -> List(),
-		BGTZ    -> List(),
-		BLEZ    -> List(),
-		BLTZ    -> List(),
-		BGEZAL  -> List(),
-		BLTZAL  -> List(),
-		J       -> List(),
-		JAL     -> List(),
-		JR      -> List(),
-		JALR    -> List(),
-		// Data Transfer
-		MFHI    -> List(),
-		MFLO    -> List(),
-		MTHI    -> List(),
-		MTLO    -> List(),
-		// Trap
-		BREAK   -> List(),
-		SYSCALL -> List(),
-		// Memory Access
-		LB      -> List(),
-		LBU     -> List(),
-		LH      -> List(),
-		LHU     -> List(),
-		LW      -> List(),
-		SB      -> List(),
-		SH      -> List(),
-		SW      -> List(),
-		// Privileged
-		ERET    -> List(),
-		MFC0    -> List(),
-		MTC0    -> List()
+	io.contr.aluop := Lookup(io.in.inst, alu_nop, Array(
+		ADD     -> alu_adds,
+		ADDI    -> alu_adds,
+		ADDU    -> alu_addu,
+		ADDIU   -> alu_addu,
+		SUB     -> alu_subs,
+		SUBU    -> alu_subu,
+		SLT     -> alu_nop,  // TODO
+		SLTI    -> alu_nop,  // TODO
+		SLTU    -> alu_nop,  // TODO
+		SLTIU   -> alu_nop,  // TODO
+		DIV     -> alu_divs,
+		DIVU    -> alu_divu,
+		MULT    -> alu_mults,
+		MULTU   -> alu_multu,
+		AND     -> alu_and,
+		ANDI    -> alu_and,
+		LUI     -> alu_nop,  // TODO
+		NOR     -> alu_nor,
+		OR      -> alu_or,	
+		ORI     -> alu_or,	
+		XOR     -> alu_xor,
+		XORI    -> alu_xor,
+		SLLV    -> alu_sftl,
+		SLL     -> alu_sftl,
+		SRAV    -> alu_sftrs,
+		SRA     -> alu_sftrs,
+		SRLV    -> alu_sftru,
+		SRL     -> alu_sftru,
+		BEQ     -> alu_nop,  // TODO
+		BNE     -> alu_nop,  // TODO
+		BGEZ    -> alu_nop,  // TODO
+		BGTZ    -> alu_nop,  // TODO
+		BLEZ    -> alu_nop,  // TODO
+		BLTZ    -> alu_nop,  // TODO
+		BGEZAL  -> alu_nop,  // TODO
+		BLTZAL  -> alu_nop   // TODO
+	))
+
+	io.contr.hilo_en := Lookup(io.in.inst, false.B, Array(
+		DIV     -> true.B,
+		DIVU    -> true.B,
+		MULT    -> true.B,
+		MULTU   -> true.B
+	))
+
+	io.contr.trans_hi := Lookup(io.in.inst, false.B, Array(
+		MFHI    -> true.B,
+		MTHI    -> true.B
+	))
+
+	io.contr.trans_lo := Lookup(io.in.inst, false.B, Array(
+		MFLO    -> true.B,
+		MTLO    -> true.B
 	))
 }
