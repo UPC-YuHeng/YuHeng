@@ -21,7 +21,7 @@ object ALUOperationList {
 }
 
 class alu_in extends Bundle {
-  val alu_op = UInt(4.U)
+  val alu_op = UInt(4.W)
   val srca   = UInt(32.W)
   val srcb   = UInt(32.W)
 }
@@ -39,21 +39,25 @@ class alu extends Module {
   })
 
   val status = ListLookup(io.in.alu_op, List(), Array(
-    alu_adds  -> List(),
-    alu_addu  -> List(),
-    alu_subs  -> List(),
-    alu_subu  -> List(),
-    alu_mults -> List(),
-    alu_multu -> List(),
-    alu_divs  -> List(),
-    alu_divu  -> List(),
-    alu_and   -> List(),
-    alu_xor   -> List(),
-    alu_nor   -> List(),
-    alu_or    -> List(),
-    alu_sftrs -> List(),
-    alu_sftru -> List(),
-    alu_sftl  -> List(),
-    alu_nop   -> List()
+    ALUOperationList.alu_adds  -> List(io.in.srca + io.in.srcb, 0.U, 0.U),
+    ALUOperationList.alu_addu  -> List(io.in.srca + io.in.srcb, 0.U, 0.U),
+    ALUOperationList.alu_subs  -> List(io.in.srca - io.in.srcb, 0.U, 0.U),
+    ALUOperationList.alu_subu  -> List(io.in.srca - io.in.srcb, 0.U, 0.U),
+    ALUOperationList.alu_mults -> List(0.U, (io.in.srca * io.in.srcb)(63,32), (io.in.srca * io.in.srcb)(31,0)),
+    ALUOperationList.alu_multu -> List(0.U, (Cat(0.U(1.W), io.in.srca) * Cat(0.U(1.W), io.in.srca))(63,32), (Cat(0.U(1.W), io.in.srca) * Cat(0.U(1.W), io.in.srca))(31,0)),
+    ALUOperationList.alu_divs  -> List(0.U, (io.in.srca % io.in.srcb)(63,32), (io.in.srca / io.in.srcb)(31,0)),
+    ALUOperationList.alu_divu  -> List(0.U, (Cat(0.U(1.W), io.in.srca) % Cat(0.U(1.W), io.in.srca))(63,32), (Cat(0.U(1.W), io.in.srca) / Cat(0.U(1.W), io.in.srca))(31,0)),
+    ALUOperationList.alu_and   -> List(io.in.srca & io.in.srcb, 0.U, 0.U),
+    ALUOperationList.alu_xor   -> List(io.in.srca ^ io.in.srcb, 0.U, 0.U),
+    ALUOperationList.alu_nor   -> List(~io.in.srca, 0.U, 0.U),
+    ALUOperationList.alu_or    -> List(io.in.srca | io.in.srcb, 0.U, 0.U),
+    ALUOperationList.alu_sftrs -> List((Fill(32, io.in.srca(31)) << (32.U - io.in.srcb)) | (io.in.srca >> io.in.srcb), 0.U, 0.U),
+    ALUOperationList.alu_sftru -> List(io.in.srca >> io.in.srcb, 0.U, 0.U),
+    ALUOperationList.alu_sftl  -> List(io.in.srca << io.in.srcb, 0.U, 0.U),
+    ALUOperationList.alu_nop   -> List(0.U, 0.U, 0.U)
   ))
+
+  io.out.dest := status(0);
+  io.out.dest_hi := status(1);
+  io.out.dest_lo := status(2);
 }

@@ -258,7 +258,7 @@ class idu extends Module {
 		LBU     -> true.B,
 		LH      -> true.B,
 		LHU     -> true.B,
-		LW      -> true.B
+		LW      -> true.B,
 		MFC0    -> true.B,
 	))
 
