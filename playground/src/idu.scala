@@ -91,8 +91,9 @@ class idu_contr extends Bundle {
 	val cp0_write = Bool()
 	val mem_read  = UInt(2.W)
 	val mem_write = UInt(2.W)
+	val cmp_op    = UInt(3.W)
 	val branch    = Bool()
-	val sext      = Bool()
+	val signed    = Bool()
 }
 
 class idu extends Module {
@@ -102,6 +103,72 @@ class idu extends Module {
 		val contr = Output(new idu_contr())
 	})
 
+	val rs     = io.in.inst(25, 21)
+	val rt     = io.in.inst(20, 16)
+	val rd     = io.in.inst(15, 11)
+	val sa     = io.in.inst(10, 6)
+
+	io.out.rs := Lookup(io.in.inst, rs, Array(
+		SLLV    -> rt,
+		SRAV    -> rt,
+		SRLV    -> rt
+	))
+
+	io.out.rt := Lookup(io.in.inst, rt, Array(
+		SLLV    -> rs,
+		SRAV    -> rs,
+		SRLV    -> rs,
+		BGEZ    -> 0.U,
+		BGTZ    -> 0.U,
+		BLEZ    -> 0.U,
+		BLTZ    -> 0.U,
+		BGEZAL  -> 0.U,
+		BLTZAL  -> 0.U
+	))
+
+	io.out.rd := Lookup(io.in.inst, rd, Array(
+		ADDI    -> rt,
+		ADDIU   -> rt,
+		SLTI    -> rt,
+		SLTIU   -> rt,
+		ANDI    -> rt,
+		LUI     -> rt,
+		ORI     -> rt,
+		XORI    -> rt,
+		LB      -> rt,
+		LBU     -> rt,
+		LH      -> rt,
+		LHU     -> rt,
+		LW      -> rt
+	))
+
+	def sext() = Cat(Fill(io.in.inst(15), 16), io.in.inst(15, 0))			// Sign Extended
+	def zext() = Cat(0.U(16.W), io.in.inst(15, 0))										// Zero Extended
+	def lext() = Cat(io.in.inst(15, 0), 0.U(16.W))										// LUI
+	def fext() = Cat(0.U(27.W), sa)																		// SLL/SRA/SRL
+
+	io.out.imm := Lookup(io.in.inst, sext(), Array(
+		ADDI    -> sext(),
+		ADDIU   -> sext(),
+		SLTI    -> sext(),
+		SLTIU   -> sext(),
+		ANDI    -> zext(),
+		LUI     -> lext(),
+		ORI     -> zext(),
+		XORI    -> zext(),
+		SLL     -> fext(),
+		SRA     -> fext(),
+		SRL     -> fext(),
+		LB      -> sext(),
+		LBU     -> sext(),
+		LH      -> sext(),
+		LHU     -> sext(),
+		LW      -> sext(),
+		SB      -> sext(),
+		SH      -> sext(),
+		SW      -> sext()
+	))
+
 	io.contr.alu_op := Lookup(io.in.inst, alu_nop, Array(
 		ADD     -> alu_adds,
 		ADDI    -> alu_adds,
@@ -109,17 +176,17 @@ class idu extends Module {
 		ADDIU   -> alu_addu,
 		SUB     -> alu_subs,
 		SUBU    -> alu_subu,
-		SLT     -> alu_nop,  // TODO
-		SLTI    -> alu_nop,  // TODO
-		SLTU    -> alu_nop,  // TODO
-		SLTIU   -> alu_nop,  // TODO
+		SLT     -> alu_subu,
+		SLTI    -> alu_subu,
+		SLTU    -> alu_subu,
+		SLTIU   -> alu_subu,
 		DIV     -> alu_divs,
 		DIVU    -> alu_divu,
 		MULT    -> alu_mults,
 		MULTU   -> alu_multu,
 		AND     -> alu_and,
 		ANDI    -> alu_and,
-		LUI     -> alu_nop,  // TODO
+		LUI     -> alu_or,
 		NOR     -> alu_nor,
 		OR      -> alu_or,	
 		ORI     -> alu_or,	
@@ -131,20 +198,68 @@ class idu extends Module {
 		SRA     -> alu_sftrs,
 		SRLV    -> alu_sftru,
 		SRL     -> alu_sftru,
-		BEQ     -> alu_nop,  // TODO
-		BNE     -> alu_nop,  // TODO
-		BGEZ    -> alu_nop,  // TODO
-		BGTZ    -> alu_nop,  // TODO
-		BLEZ    -> alu_nop,  // TODO
-		BLTZ    -> alu_nop,  // TODO
-		BGEZAL  -> alu_nop,  // TODO
-		BLTZAL  -> alu_nop   // TODO
+		BEQ     -> alu_subu,
+		BNE     -> alu_subu,
+		BGEZ    -> alu_subu,
+		BGTZ    -> alu_subu,
+		BLEZ    -> alu_subu,
+		BLTZ    -> alu_subu,
+		BGEZAL  -> alu_subu,
+		BLTZAL  -> alu_subu
 	))
 	
 	io.contr.alu_src := Lookup(io.in.inst, false.B, Array(
+		ADDI    -> true.B,
+		ADDIU   -> true.B,
+		SLTI    -> true.B,
+		SLTIU   -> true.B,
+		ANDI    -> true.B,
+		LUI     -> true.B,
+		ORI     -> true.B,
+		XORI    -> true.B,
+		SLL     -> true.B,
+		SRA     -> true.B,
+		SRL     -> true.B,
 	))
 
 	io.contr.reg_write := Lookup(io.in.inst, false.B, Array(
+		ADD     -> true.B,
+		ADDI    -> true.B,
+		ADDU    -> true.B,
+		ADDIU   -> true.B,
+		SUB     -> true.B,
+		SUBU    -> true.B,
+		SLT     -> true.B,
+		SLTI    -> true.B,
+		SLTU    -> true.B,
+		SLTIU   -> true.B,
+		AND     -> true.B,
+		ANDI    -> true.B,
+		LUI     -> true.B,
+		NOR     -> true.B,
+		OR      -> true.B,
+		ORI     -> true.B,
+		XOR     -> true.B,
+		XORI    -> true.B,
+		SLLV    -> true.B,
+		SLL     -> true.B,
+		SRAV    -> true.B,
+		SRA     -> true.B,
+		SRLV    -> true.B,
+		SRL     -> true.B,
+		BGEZAL  -> true.B,
+		BLTZAL  -> true.B,
+		JAL     -> true.B,
+		JR      -> true.B,
+		JALR    -> true.B,
+		MFHI    -> true.B,
+		MFLO    -> true.B,
+		LB      -> true.B,
+		LBU     -> true.B,
+		LH      -> true.B,
+		LHU     -> true.B,
+		LW      -> true.B
+		MFC0    -> true.B,
 	))
 
 	io.contr.hilo_en := Lookup(io.in.inst, false.B, Array(
@@ -188,10 +303,51 @@ class idu extends Module {
 		SW      -> 3.U
 	))
 
-	io.contr.branch := Lookup(io.in.inst, false.B, Array(
+	io.contr.cmp_op := Lookup(io.in.inst, 0.U, Array(
+		// 0 -> NOP, 1 -> Reserved, 2 -> "==", 3 -> "!="
+		// 4 -> ">=", 5 -> ">", 6 -> "<=", 7 -> "<"
+		SLT     -> 7.U,
+		SLTI    -> 7.U,
+		SLTU    -> 7.U,
+		SLTIU   -> 7.U,
+		BEQ     -> 2.U,
+		BNE     -> 3.U,
+		BGEZ    -> 4.U,
+		BGTZ    -> 5.U,
+		BLEZ    -> 6.U,
+		BLTZ    -> 7.U,
+		BGEZAL  -> 4.U,
+		BLTZAL  -> 7.U,
 	))
 
-	io.contr.sext := Lookup(io.in.inst, false.B, Array(
+	io.contr.branch := Lookup(io.in.inst, false.B, Array(
+		BEQ     -> true.B,
+		BNE     -> true.B,
+		BGEZ    -> true.B,
+		BGTZ    -> true.B,
+		BLEZ    -> true.B,
+		BLTZ    -> true.B,
+		BGEZAL  -> true.B,
+		BLTZAL  -> true.B,
+		J       -> true.B,
+		JAL     -> true.B,
+		JR      -> true.B,
+		JALR    -> true.B
+	))
+
+	io.contr.signed := Lookup(io.in.inst, false.B, Array(
+		SLT     -> true.B,
+		SLTI    -> true.B,
+		SLTU    -> false.B,
+		SLTIU   -> false.B,
+		BEQ     -> true.B,
+		BNE     -> true.B,
+		BGEZ    -> true.B,
+		BGTZ    -> true.B,
+		BLEZ    -> true.B,
+		BLTZ    -> true.B,
+		BGEZAL  -> true.B,
+		BLTZAL  -> true.B,
 		LB      -> true.B,
 		LBU     -> false.B,
 		LH      -> true.B,

@@ -15,11 +15,14 @@ class cpu extends Module {
 
 	val exu = Module(new exu())
 	exu.io.in.alu_op := idu.io.contr.alu_op
+	exu.io.in.cmp_op := idu.io.contr.cmp_op
+	exu.io.in.signed := idu.io.contr.signed
 	exu.io.in.srca   := reg.io.out.rs_data
-	exu.io.in.srcb   := reg.io.out.rt_data
+	exu.io.in.srcb   := Mux(idu.io.contr.alu_src, idu.io.out.imm, reg.io.out.rt_data)
 
 	val reg = Module(new reg())
 	// reg
+	reg.io.in.reg_write := idu.io.contr.reg_write
 	reg.io.in.rs_addr   := idu.io.out.rs_addr
 	reg.io.in.rt_addr   := idu.io.out.rt_addr
 	reg.io.in.rd_addr   := idu.io.out.rd_addr

@@ -2,9 +2,11 @@ import chisel3._
 import chisel3.util._
 
 class exu_in extends Bundle {
-  val alu_op = UInt(4.U)
-  val srca  = UInt(32.W)
-  val srcb  = UInt(32.W)
+  val alu_op = UInt(4.W)
+  val cmp_op = UInt(3.W)
+  val signed = Bool()
+  val srca   = UInt(32.W)
+  val srcb   = UInt(32.W)
 }
 
 class exu_out extends Bundle {
@@ -23,7 +25,11 @@ class exu extends Module {
   alu.io.in.alu_op   := exu.io.in.alu_op
   alu.io.in.srca     := exu.io.in.srca
   alu.io.in.srcb     := exu.io.in.srcb
-  exu.io.out.dest    := alu.io.out.dest
   exu.io.out.dest_hi := alu.io.out.dest_hi
   exu.io.out.dest_lo := alu.io.out.dest_lo
+
+  exu.io.out.dest := ListLookup(cmp_op, alu.io.out.dest, Array(
+		// 0 -> NOP, 1 -> Reserved, 2 -> "==", 3 -> "!="
+		// 4 -> ">=", 5 -> ">", 6 -> "<=", 7 -> "<"
+  ))
 }
