@@ -40,22 +40,26 @@ class alu extends Module {
     val out = Output(new alu_out())
   })
 
-  val status = MuxLookup(io.in.alu_op, List(), Array(
-    alu_adds  -> List(),
-    alu_addu  -> List(),
-    alu_subs  -> List(),
-    alu_subu  -> List(),
-    alu_mults -> List(),
-    alu_multu -> List(),
-    alu_divs  -> List(),
-    alu_divu  -> List(),
-    alu_and   -> List(),
-    alu_xor   -> List(),
-    alu_nor   -> List(),
-    alu_or    -> List(),
-    alu_sftrs -> List(),
-    alu_sftru -> List(),
-    alu_sftl  -> List(),
-    alu_nop   -> List()
+  val status = ListLookup(io.in.alu_op, List(), Array(
+    alu_adds  -> List(io.in.srca + io.in.srcb, 0.U, 0.U),
+    alu_addu  -> List(io.in.srca + io.in.srcb, 0.U, 0.U),
+    alu_subs  -> List(io.in.srca - io.in.srcb, 0.U, 0.U),
+    alu_subu  -> List(io.in.srca - io.in.srcb, 0.U, 0.U),
+    alu_mults -> List(0.U, (io.in.srca * io.in.srcb)(63,32), (io.in.srca * io.in.srcb)(31,0)),
+    alu_multu -> List(0.U, (Cat(0.U(1.W), io.in.srca) * Cat(0.U(1.W), io.in.srca))(63,32), (Cat(0.U(1.W), io.in.srca) * Cat(0.U(1.W), io.in.srca))(31,0)),
+    alu_divs  -> List(0.U, (io.in.srca % io.in.srcb)(63,32), (io.in.srca / io.in.srcb)(31,0)),
+    alu_divu  -> List(0.U, (Cat(0.U(1.W), io.in.srca) % Cat(0.U(1.W), io.in.srca))(63,32), (Cat(0.U(1.W), io.in.srca) / Cat(0.U(1.W), io.in.srca))(31,0)),
+    alu_and   -> List(io.in.srca & io.in.srcb, 0.U, 0.U),
+    alu_xor   -> List(io.in.srca ^ io.in.srcb, 0.U, 0.U),
+    alu_nor   -> List(~io.in.srca, 0.U, 0.U),
+    alu_or    -> List(io.in.srca | io.in.srcb, 0.U, 0.U),
+    alu_sftrs -> List((Fill(32, io.in.srca(31)) << (32.U - io.in.srcb)) | (io.in.srca >> io.in.srcb), 0.U, 0.U),
+    alu_sftru -> List(io.in.srca >> io.in.srcb, 0.U, 0.U),
+    alu_sftl  -> List(io.in.srca << io.in.srcb, 0.U, 0.U),
+    alu_nop   -> List(0.U, 0.U, 0.U)
   ))
+
+  io.out.dest    := status(0);
+  io.out.dest_hi := status(1);
+  io.out.dest_lo := status(2);
 }
