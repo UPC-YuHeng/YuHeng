@@ -39,7 +39,7 @@ class alu extends Module {
     val in  = Input(new alu_in())
     val out = Output(new alu_out())
   })
-
+/*
   val status = ListLookup(io.in.alu_op, List(), Array(
     alu_adds  -> List(io.in.srca + io.in.srcb, 0.U, 0.U),
     alu_addu  -> List(io.in.srca + io.in.srcb, 0.U, 0.U),
@@ -62,4 +62,35 @@ class alu extends Module {
   io.out.dest    := status(0);
   io.out.dest_hi := status(1);
   io.out.dest_lo := status(2);
+*/
+  val a = io.in.srca
+  val b = io.in.srcb
+
+  io.out.dest := Lookup(io.in.alu_op, 0.U, Array(
+    alu_adds  -> (),
+    alu_addu  -> (),
+    alu_subs  -> (),
+    alu_subu  -> (),
+    alu_and   -> (),
+    alu_xor   -> (),
+    alu_nor   -> (),
+    alu_or    -> (),
+    alu_sftrs -> (),
+    alu_sftru -> (),
+    alu_sftl  -> ()
+  ))
+
+  io.out.dest_hi := Lookup(io.in.alu_op, 0.U, Array(
+    alu_mults -> (),
+    alu_multu -> (),
+    alu_divs  -> (),
+    alu_divu  -> ()
+  ))
+
+  io.out.dest_lo := Lookup(io.in.alu_op, 0.U, Array(
+    alu_mults -> (),
+    alu_multu -> (),
+    alu_divs  -> (),
+    alu_divu  -> ()
+  ))
 }
