@@ -69,6 +69,9 @@ object InstructionList {
 	val MTC0    = BitPat("b010000 00100 ????? ????? 00000 000???")
 }
 
+import InstructionList._
+import ALUOperationList._
+
 class idu_in extends Bundle {
 	val inst = UInt(32.W)
 }
@@ -91,6 +94,7 @@ class idu_contr extends Bundle {
 	val cp0_write = Bool()
 	val mem_read  = UInt(2.W)
 	val mem_write = UInt(2.W)
+	val call_src  = Bool()
 	val cmp_op    = UInt(3.W)
 	val branch    = Bool()
 	val signed    = Bool()
@@ -258,8 +262,8 @@ class idu extends Module {
 		LBU     -> true.B,
 		LH      -> true.B,
 		LHU     -> true.B,
-		LW      -> true.B
-		MFC0    -> true.B,
+		LW      -> true.B,
+		MFC0    -> true.B
 	))
 
 	io.contr.hilo_en := Lookup(io.in.inst, false.B, Array(
@@ -301,6 +305,13 @@ class idu extends Module {
 		SB      -> 1.U,
 		SH      -> 2.U,
 		SW      -> 3.U
+	))
+
+	io.contr.call_src := Lookup(io.in.inst, false.B, Array(
+		BGEZAL  -> true.B,
+		BLTZAL  -> true.B,
+		JAL     -> true.B,
+		JALR    -> true.B
 	))
 
 	io.contr.cmp_op := Lookup(io.in.inst, 0.U, Array(

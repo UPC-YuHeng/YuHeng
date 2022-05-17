@@ -22,13 +22,13 @@ class exu extends Module {
   })
 
   val alu = Module(new alu())
-  alu.io.in.alu_op   := exu.io.in.alu_op
-  alu.io.in.srca     := exu.io.in.srca
-  alu.io.in.srcb     := exu.io.in.srcb
-  exu.io.out.dest_hi := alu.io.out.dest_hi
-  exu.io.out.dest_lo := alu.io.out.dest_lo
+  alu.io.in.alu_op := io.in.alu_op
+  alu.io.in.srca   := io.in.srca
+  alu.io.in.srcb   := io.in.srcb
+  io.out.dest_hi   := alu.io.out.dest_hi
+  io.out.dest_lo   := alu.io.out.dest_lo
 
-  exu.io.out.dest := ListLookup(cmp_op, alu.io.out.dest, Array(
+  exu.io.out.dest := ListLookup(io.in.cmp_op, alu.io.out.dest, Array(
 		// 0 -> NOP, 1 -> Reserved, 2 -> "==", 3 -> "!="
 		// 4 -> ">=", 5 -> ">", 6 -> "<=", 7 -> "<"
   ))

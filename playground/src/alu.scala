@@ -20,8 +20,10 @@ object ALUOperationList {
   val alu_nop   = 15.U
 }
 
+import ALUOperationList._
+
 class alu_in extends Bundle {
-  val alu_op = UInt(4.U)
+  val alu_op = UInt(4.W)
   val srca   = UInt(32.W)
   val srcb   = UInt(32.W)
 }
@@ -38,7 +40,7 @@ class alu extends Module {
     val out = Output(new alu_out())
   })
 
-  val status = ListLookup(io.in.alu_op, List(), Array(
+  val status = MuxLookup(io.in.alu_op, List(), Array(
     alu_adds  -> List(),
     alu_addu  -> List(),
     alu_subs  -> List(),

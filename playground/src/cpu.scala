@@ -23,16 +23,21 @@ class cpu extends Module {
 	val reg = Module(new reg())
 	// reg
 	reg.io.in.reg_write := idu.io.contr.reg_write
-	reg.io.in.rs_addr   := idu.io.out.rs_addr
-	reg.io.in.rt_addr   := idu.io.out.rt_addr
-	reg.io.in.rd_addr   := idu.io.out.rd_addr
+	reg.io.in.rs_addr   := idu.io.out.rs
+	reg.io.in.rt_addr   := idu.io.out.rt
+	reg.io.in.rd_addr   := idu.io.out.rd
+	reg.io.in.rd_data   := Mux(idu.io.contr.call_src, pc + 8.U, exu.io.out.dest)
 	// hi/lo
 	reg.io.in.hilo_en   := idu.io.contr.hilo_en
 	reg.io.in.trans_hi  := idu.io.contr.trans_hi
 	reg.io.in.trans_lo  := idu.io.contr.trans_lo
-	reg.io.in.hi_data   := idu.io.out.dest_hi
-	reg.io.in.lo_data   := idu.io.out.dest_lo
+	reg.io.in.hi_data   := exu.io.out.dest_hi
+	reg.io.in.lo_data   := exu.io.out.dest_lo
 	// cp0
 	reg.io.in.cp0_read  := idu.io.contr.cp0_read
 	reg.io.in.cp0_write := idu.io.contr.cp0_write
+	reg.io.in.cp0_addr  := idu.io.out.rd
+	reg.io.in.cp0_sel   := ifu.io.out.inst(3, 0)
+
+	val branch = Module(new branch())
 }
