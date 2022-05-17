@@ -14,15 +14,22 @@ class cpu extends Module {
 	idu.io.in.inst := ifu.io.out.inst
 
 	val exu = Module(new exu())
-	exu.io.in.aluop := idu.io.contr.aluop
-	exu.io.in.srca  := reg.io.out.rs_data
-	exu.io.in.srcb  := reg.io.out.rt_data
+	exu.io.in.alu_op := idu.io.contr.alu_op
+	exu.io.in.srca   := reg.io.out.rs_data
+	exu.io.in.srcb   := reg.io.out.rt_data
 
 	val reg = Module(new reg())
-	reg.io.in.rs_addr  := idu.io.out.rs_addr
-	reg.io.in.rt_addr  := idu.io.out.rt_addr
-	reg.io.in.rd_addr  := idu.io.out.rd_addr
-	reg.io.in.hilo_en  := idu.io.contr.hilo_en
-	reg.io.in.trans_hi := idu.io.contr.trans_hi
-	reg.io.in.trans_lo := idu.io.contr.trans_lo
+	// reg
+	reg.io.in.rs_addr   := idu.io.out.rs_addr
+	reg.io.in.rt_addr   := idu.io.out.rt_addr
+	reg.io.in.rd_addr   := idu.io.out.rd_addr
+	// hi/lo
+	reg.io.in.hilo_en   := idu.io.contr.hilo_en
+	reg.io.in.trans_hi  := idu.io.contr.trans_hi
+	reg.io.in.trans_lo  := idu.io.contr.trans_lo
+	reg.io.in.hi_data   := idu.io.out.dest_hi
+	reg.io.in.lo_data   := idu.io.out.dest_lo
+	// cp0
+	reg.io.in.cp0_read  := idu.io.contr.cp0_read
+	reg.io.in.cp0_write := idu.io.contr.cp0_write
 }

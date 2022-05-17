@@ -8,12 +8,17 @@ class reg_in extends Bundle {
   val rt_addr   = UInt(5.W)
   val rd_addr   = UInt(5.W)
   val rd_data   = UInt(32.W)
-  // reg hi/lo
+  // hi/lo
   val hilo_en   = Bool()
   val trans_hi  = Bool()
   val trans_lo  = Bool()
   val hi_data   = UInt(32.W)
   val lo_data   = UInt(32.W)
+  // cp0
+  val cp0_read  = Bool()
+  val cp0_write = Bool()
+  val cp0_addr  = UInt(5.W)
+  val cp0_sel   = UInt(3.W)
 }
 
 class reg_out extends Bundle {
@@ -31,16 +36,28 @@ class reg extends Module {
   val reg = RegInit(VecInit(Seq.fill(32)(0.U(32.W))))
   val reg_hi = RegInit(0.U(32.W))
   val reg_lo = RegInit(0.U(32.W))
+  val cp0 = RegInit(VecInit(Seq.fill(32)(0.U(32.W))))
 
   io.out.rs_data := reg(io.in.rs_addr)
   io.out.rt_data := reg(io.in.rt_data)
 
   when (io.in.reg_write) {
-    reg(io.in.rd_addr) := Mux(io.in.trans_hi, reg_hi, Mux(io.in.trans_lo, reg_lo, io.in.rd_data))
+    reg(io.in.rd_addr) := Mux(io.in.trans_hi,
+      reg_hi, Mux(io.in.trans_lo,
+        reg_lo, Mux(io.in.cp0_read,
+          cp0(io.in.cp0_addr),
+          io.in.rd_data
+        )
+      )
+    )
   }
   when (io.in.hilo_en) {
     reg_hi := io.in.hi_data
     reg_lo := io.in.lo_data
+  }
+  when (io.in.cp0_write) {
+    // TODO: not use sel, function is not clear.
+    cp0(cp0_addr) := reg(rt_addr)
   }
 
   reg(0) = 0.U

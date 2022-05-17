@@ -1,8 +1,6 @@
 import chisel3._
 import chisel3.util._
 
-import ALUOperationList._
-
 object InstructionList {
 	// Arithmetic Operation
 	val ADD     = BitPat("b000000 ????? ????? ????? 00000 100000")
@@ -83,10 +81,18 @@ class idu_out extends Bundle {
 }
 
 class idu_contr extends Bundle {
-	val aluop    = UInt(4.W)
-	val hilo_en  = Bool()
-	val trans_hi = Bool()
-	val trans_lo = Bool()
+	val alu_op    = UInt(4.W)
+	val alu_src   = Bool()
+	val reg_write = Bool()
+	val hilo_en   = Bool()
+	val trans_hi  = Bool()
+	val trans_lo  = Bool()
+	val cp0_read  = Bool()
+	val cp0_write = Bool()
+	val mem_read  = UInt(2.W)
+	val mem_write = UInt(2.W)
+	val branch    = Bool()
+	val sext      = Bool()
 }
 
 class idu extends Module {
@@ -96,7 +102,7 @@ class idu extends Module {
 		val contr = Output(new idu_contr())
 	})
 
-	io.contr.aluop := Lookup(io.in.inst, alu_nop, Array(
+	io.contr.alu_op := Lookup(io.in.inst, alu_nop, Array(
 		ADD     -> alu_adds,
 		ADDI    -> alu_adds,
 		ADDU    -> alu_addu,
@@ -134,6 +140,12 @@ class idu extends Module {
 		BGEZAL  -> alu_nop,  // TODO
 		BLTZAL  -> alu_nop   // TODO
 	))
+	
+	io.contr.alu_src := Lookup(io.in.inst, false.B, Array(
+	))
+
+	io.contr.reg_write := Lookup(io.in.inst, false.B, Array(
+	))
 
 	io.contr.hilo_en := Lookup(io.in.inst, false.B, Array(
 		DIV     -> true.B,
@@ -150,5 +162,40 @@ class idu extends Module {
 	io.contr.trans_lo := Lookup(io.in.inst, false.B, Array(
 		MFLO    -> true.B,
 		MTLO    -> true.B
+	))
+
+	io.contr.cp0_read := Lookup(io.in.inst, false.B, Array(
+		MFC0    -> true.B
+	))
+
+	io.contr.cp0_write := Lookup(io.in.inst, false.B, Array(
+		MTC0    -> true.B
+	))
+
+	io.contr.mem_read := Lookup(io.in.inst, 0.U, Array(
+		// 0 -> 0B, 1 -> 1B, 2 -> 2B, 3 -> 4B
+		LB      -> 1.U,
+		LBU     -> 1.U,
+		LH      -> 2.U,
+		LHU     -> 2.U,
+		LW      -> 3.U
+	))
+
+	io.contr.mem_write := Lookup(io.in.inst, 0.U, Array(
+		// 0 -> 0B, 1 -> 1B, 2 -> 2B, 3 -> 4B
+		SB      -> 1.U,
+		SH      -> 2.U,
+		SW      -> 3.U
+	))
+
+	io.contr.branch := Lookup(io.in.inst, false.B, Array(
+	))
+
+	io.contr.sext := Lookup(io.in.inst, false.B, Array(
+		LB      -> true.B,
+		LBU     -> false.B,
+		LH      -> true.B,
+		LHU     -> false.B,
+		LW      -> true.B
 	))
 }

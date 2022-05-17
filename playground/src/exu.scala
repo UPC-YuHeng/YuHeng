@@ -2,7 +2,7 @@ import chisel3._
 import chisel3.util._
 
 class exu_in extends Bundle {
-  val aluop = UInt(4.U)
+  val alu_op = UInt(4.U)
   val srca  = UInt(32.W)
   val srcb  = UInt(32.W)
 }
@@ -20,7 +20,7 @@ class exu extends Module {
   })
 
   val alu = Module(new alu())
-  alu.io.in.aluop    := exu.io.in.aluop
+  alu.io.in.alu_op   := exu.io.in.alu_op
   alu.io.in.srca     := exu.io.in.srca
   alu.io.in.srcb     := exu.io.in.srcb
   exu.io.out.dest    := alu.io.out.dest
