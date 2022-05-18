@@ -55,22 +55,22 @@ class alu extends Module {
     alu_nor   -> (~(a | b)),
     alu_or    -> (a | b),
     alu_sftrs -> ((a.asSInt() >> b).asUInt()),
-    alu_sftru -> (a >> b),
-    alu_sftl  -> (a << b)
+    alu_sftru -> (a >> b(4,0)),
+    alu_sftl  -> (a << b(4,0))
   ))
 
   io.out.dest_hi := MuxLookup(io.in.alu_op, 0.U, Array(
     alu_mults -> (a.asSInt() * b.asSInt()).asUInt()(63, 32),
     alu_multu -> ((a * b)(63, 32)),
-    alu_divs  -> (a.asSInt() / b.asSInt()).asUInt()(63, 32),
-    alu_divu  -> ((a / b)(63, 32))
+    alu_divs  -> (a.asSInt() % b.asSInt()).asUInt(),
+    alu_divu  -> (a % b)
   ))
 
   io.out.dest_lo := MuxLookup(io.in.alu_op, 0.U, Array(
     alu_mults -> (a.asSInt() * b.asSInt()).asUInt()(31, 0),
     alu_multu -> ((a * b)(31, 0)),
-    alu_divs  -> (a.asSInt() / b.asSInt()).asUInt()(31, 0),
-    alu_divu  -> ((a / b)(31, 0))
+    alu_divs  -> (a.asSInt() / b.asSInt()).asUInt(),
+    alu_divu  -> (a / b)
   ))
 
   io.out.exceed := MuxLookup(io.in.alu_op, 0.U, Array(
