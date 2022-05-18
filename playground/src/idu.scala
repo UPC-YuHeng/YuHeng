@@ -72,35 +72,34 @@ object InstructionList {
 import InstructionList._
 import ALUOperationList._
 
-class idu_in extends Bundle {
-	val inst = UInt(32.W)
-}
-
-class idu_out extends Bundle {
-	val rs  = UInt(5.W)
-	val rt  = UInt(5.W)
-	val rd  = UInt(5.W)
-	val imm = UInt(32.W)
-}
-
-class idu_contr extends Bundle {
-	val alu_op    = UInt(4.W)
-	val alu_src   = Bool()
-	val reg_write = Bool()
-	val hilo_en   = Bool()
-	val trans_hi  = Bool()
-	val trans_lo  = Bool()
-	val cp0_read  = Bool()
-	val cp0_write = Bool()
-	val mem_read  = UInt(2.W)
-	val mem_write = UInt(2.W)
-	val call_src  = Bool()
-	val cmp_op    = UInt(3.W)
-	val branch    = Bool()
-	val signed    = Bool()
-}
-
 class idu extends Module {
+	class idu_in extends Bundle {
+		val inst = UInt(32.W)
+	}
+	class idu_out extends Bundle {
+		val rs  = UInt(5.W)
+		val rt  = UInt(5.W)
+		val rd  = UInt(5.W)
+		val imm = UInt(32.W)
+	}
+	class idu_contr extends Bundle {
+		val alu_op    = UInt(4.W)
+		val alu_src   = Bool()
+		val reg_write = Bool()
+		val hilo_en   = Bool()
+		val trans_hi  = Bool()
+		val trans_lo  = Bool()
+		val cp0_read  = Bool()
+		val cp0_write = Bool()
+		val mem_read  = Bool()
+		val mem_write = Bool()
+		val mem_mask  = UInt(2.W)
+		val call_src  = Bool()
+		val cmp_op    = UInt(3.W)
+		val branch    = Bool()
+		val jr        = Bool()
+		val signed    = Bool()
+	}
 	val io = IO(new Bundle {
 		val in    = Input(new idu_in())
 		val out   = Output(new idu_out())
@@ -291,17 +290,27 @@ class idu extends Module {
 		MTC0    -> true.B
 	))
 
-	io.contr.mem_read := Lookup(io.in.inst, 0.U, Array(
+	io.contr.mem_read := Lookup(io.in.inst, false.B, Array(
+		LB      -> true.B,
+		LBU     -> true.B,
+		LH      -> true.B,
+		LHU     -> true.B,
+		LW      -> true.B
+	))
+
+	io.contr.mem_write := Lookup(io.in.inst, false.B, Array(
+		SB      -> true.B,
+		SH      -> true.B,
+		SW      -> true.B
+	))
+
+	io.contr.mem_mask := Lookup(io.in.inst, 0.U, Array(
 		// 0 -> 0B, 1 -> 1B, 2 -> 2B, 3 -> 4B
 		LB      -> 1.U,
 		LBU     -> 1.U,
 		LH      -> 2.U,
 		LHU     -> 2.U,
-		LW      -> 3.U
-	))
-
-	io.contr.mem_write := Lookup(io.in.inst, 0.U, Array(
-		// 0 -> 0B, 1 -> 1B, 2 -> 2B, 3 -> 4B
+		LW      -> 3.U,
 		SB      -> 1.U,
 		SH      -> 2.U,
 		SW      -> 3.U
@@ -342,6 +351,9 @@ class idu extends Module {
 		BLTZAL  -> true.B,
 		J       -> true.B,
 		JAL     -> true.B,
+	))
+
+	io.contr.jr := Lookup(io.in.inst, false.B, Array(
 		JR      -> true.B,
 		JALR    -> true.B
 	))
