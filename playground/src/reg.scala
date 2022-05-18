@@ -60,5 +60,5 @@ class reg extends Module {
     cp0(cp0_addr) := reg(rt_addr)
   }
 
-  reg(0) = 0.U
+  reg(0) := 0.U
 }

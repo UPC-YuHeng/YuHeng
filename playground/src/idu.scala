@@ -146,7 +146,7 @@ class idu extends Module {
 		LW      -> rt
 	))
 
-	def sext() = Cat(Fill(io.in.inst(15), 16), io.in.inst(15, 0))			// Sign Extended
+	def sext() = Cat(Fill(16, io.in.inst(15)), io.in.inst(15, 0))			// Sign Extended
 	def zext() = Cat(0.U(16.W), io.in.inst(15, 0))										// Zero Extended
 	def lext() = Cat(io.in.inst(15, 0), 0.U(16.W))										// LUI
 	def fext() = Cat(0.U(27.W), sa)																		// SLL/SRA/SRL
