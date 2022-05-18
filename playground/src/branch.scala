@@ -19,28 +19,28 @@ class branch extends Module {
     val out = Output(new branch_out())
   })
 
-  val b_pipe = new Pipe(Bool())
+  val b_pipe = Module(new Pipe(Bool()))
   b_pipe.io.enq := io.in.branch & io.in.bcmp
 
-  val jump_pipe = new Pipe(Bool())
+  val jump_pipe = Module(new Pipe(Bool()))
   jump_pipe.io.enq := io.in.jump
 
-  val jsrc_pipe = new Pipe(Bool())
+  val jsrc_pipe = Module(new Pipe(Bool()))
   jsrc_pipe.io.enq := io.in.jump
 
-  val imm_pipe = new Pipe(UInt(32.W))
+  val imm_pipe = Module(new Pipe(UInt(32.W)))
   imm_pipe.io.enq := io.in.imm
 
-  val reg_pipe = new Pipe(UInt(32.W))
+  val reg_pipe = Module(new Pipe(UInt(32.W)))
   reg_pipe.io.enq := io.in.reg
 
-  io.out.pc := Mux(jump_pipe.io.deq,
-    Mux(jsrc_pipe.io.deq,
-      Cat(io.in.pc(31, 28), imm_pipe.io.deq(25, 0), 0.U(2.W)),
-      reg_pipe.io.deq
+  io.out.pc := Mux(jump_pipe.io.deq.bits,
+    Mux(jsrc_pipe.io.deq.bits,
+      Cat(io.in.pc(31, 28), imm_pipe.io.deq.bits(25, 0), 0.U(2.W)),
+      reg_pipe.io.deq.bits
     ),
-    Mux(b_pipe.io.deq,
-      io.in.pc + Cat(0.U(14.W), imm_pipe.io.deq(15, 0), 0.U(2.W)),
+    Mux(b_pipe.io.deq.bits,
+      io.in.pc + Cat(0.U(14.W), imm_pipe.io.deq.bits(15, 0), 0.U(2.W)),
       io.in.pc + 4.U
     )
   )

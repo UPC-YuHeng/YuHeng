@@ -17,8 +17,8 @@ class cpu extends Module {
 	reg.io.in.rd_addr   := idu.io.out.rd
 	reg.io.in.rd_data   := Mux(idu.io.contr.mem_read,
 		MuxLookup(idu.io.contr.mem_mask, 0.U, Array(
-			1.U -> Cat(Fill(mem.io.rdata( 7) & idu.io.contr.signed, 24), mem.io.rdata( 7, 0)),
-			2.U -> Cat(Fill(mem.io.rdata(15) & idu.io.contr.signed, 16), mem.io.rdata(15, 0)),
+			1.U -> Cat(Fill(24, mem.io.rdata(7) & idu.io.contr.signed.asUInt()), mem.io.rdata( 7, 0)),
+			2.U -> Cat(Fill(16, mem.io.rdata(15) & idu.io.contr.signed.asUInt()), mem.io.rdata(15, 0)),
 			3.U -> mem.io.rdata
 		)),
 		Mux(idu.io.contr.call_src,

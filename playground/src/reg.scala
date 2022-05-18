@@ -44,7 +44,7 @@ class reg extends Module {
   val reg = RegInit(VecInit(Seq.fill(32)(0.U(32.W))))
 
   io.out.rs_data := reg(io.in.rs_addr)
-  io.out.rt_data := reg(io.in.rt_data)
+  io.out.rt_data := reg(io.in.rt_addr)
 
   when (io.in.reg_write) {
     reg(io.in.rd_addr) := Mux(io.in.trans_hi,
@@ -67,11 +67,11 @@ class reg extends Module {
 
   val cp0 = RegInit(VecInit(Seq.fill(32)(0.U(32.W))))
 
-  when (io.reset) {
+  // when (io.reset) { // TODO(wcx) : io.reset not found
     // TODO(Zhang Sen): reset for cp0.
-  }
+  // }
   when (io.in.cp0_write) {
-    cp0(cp0_addr) := reg(rt_addr)
+    cp0(io.in.cp0_addr) := reg(io.in.rt_addr)
   }
 
   reg(0) := 0.U
