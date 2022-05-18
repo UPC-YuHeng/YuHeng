@@ -22,19 +22,17 @@ object ALUOperationList {
 
 import ALUOperationList._
 
-class alu_in extends Bundle {
-  val alu_op = UInt(4.W)
-  val srca   = UInt(32.W)
-  val srcb   = UInt(32.W)
-}
-
-class alu_out extends Bundle {
-  val dest    = UInt(32.W)
-  val dest_hi = UInt(32.W)
-  val dest_lo = UInt(32.W)
-}
-
 class alu extends Module {
+  class alu_in extends Bundle {
+    val alu_op = UInt(4.W)
+    val srca   = UInt(32.W)
+    val srcb   = UInt(32.W)
+  }
+  class alu_out extends Bundle {
+    val dest    = UInt(32.W)
+    val dest_hi = UInt(32.W)
+    val dest_lo = UInt(32.W)
+  }
   val io = IO(new Bundle {
     val in  = Input(new alu_in())
     val out = Output(new alu_out())

@@ -1,11 +1,54 @@
 import chisel3._
 import chisel3.util._
 
+import yuheng.debug.mem
+
 class cpu extends Module {
 	val io = IO(new Bundle {
 	})
 
 	val pc = RegInit((0x80000000).U(32.W))
+
+	val reg = Module(new reg())
+	// reg
+	reg.io.in.reg_write := idu.io.contr.reg_write
+	reg.io.in.rs_addr   := idu.io.out.rs
+	reg.io.in.rt_addr   := idu.io.out.rt
+	reg.io.in.rd_addr   := idu.io.out.rd
+	reg.io.in.rd_data   := Mux(idu.io.contr.mem_read,
+		MuxLookup(idu.io.contr.mem_mask, 0.U, Array(
+			1.U -> Cat(Fill(mem.io.rdata( 7) & idu.io.contr.signed, 24), mem.io.rdata( 7, 0)),
+			2.U -> Cat(Fill(mem.io.rdata(15) & idu.io.contr.signed, 16), mem.io.rdata(15, 0)),
+			3.U -> mem.io.rdata
+		)),
+		Mux(idu.io.contr.call_src,
+			pc + 8.U,
+			exu.io.out.dest
+		)
+	)
+	// hi/lo
+	reg.io.in.hilo_en   := idu.io.contr.hilo_en
+	reg.io.in.trans_hi  := idu.io.contr.trans_hi
+	reg.io.in.trans_lo  := idu.io.contr.trans_lo
+	reg.io.in.hi_data   := exu.io.out.dest_hi
+	reg.io.in.lo_data   := exu.io.out.dest_lo
+	// cp0
+	reg.io.in.cp0_read  := idu.io.contr.cp0_read
+	reg.io.in.cp0_write := idu.io.contr.cp0_write
+	reg.io.in.cp0_addr  := idu.io.out.rd
+	reg.io.in.cp0_sel   := ifu.io.out.inst(3, 0)
+
+	val mem = Module(new mem())
+	mem.io.ren   := idu.io.contr.mem_read
+	mem.io.wen   := idu.io.contr.mem_write
+	mem.io.raddr := reg.io.out.rt_data
+	mem.io.waddr := reg.io.out.rt_data
+	mem.io.wdata := exu.io.out.dest
+	mem.io.mask  := MuxLookup(idu.io.contr.mem_mask, 0.U, Array(
+		1.U -> 0x1.U,
+		2.U -> 0x3.U,
+		3.U -> 0xf.U
+	))
 	
 	val ifu = Module(new ifu())
 	ifu.io.in.addr := pc
@@ -20,24 +63,7 @@ class cpu extends Module {
 	exu.io.in.srca   := reg.io.out.rs_data
 	exu.io.in.srcb   := Mux(idu.io.contr.alu_src, idu.io.out.imm, reg.io.out.rt_data)
 
-	val reg = Module(new reg())
-	// reg
-	reg.io.in.reg_write := idu.io.contr.reg_write
-	reg.io.in.rs_addr   := idu.io.out.rs
-	reg.io.in.rt_addr   := idu.io.out.rt
-	reg.io.in.rd_addr   := idu.io.out.rd
-	reg.io.in.rd_data   := Mux(idu.io.contr.call_src, pc + 8.U, exu.io.out.dest)
-	// hi/lo
-	reg.io.in.hilo_en   := idu.io.contr.hilo_en
-	reg.io.in.trans_hi  := idu.io.contr.trans_hi
-	reg.io.in.trans_lo  := idu.io.contr.trans_lo
-	reg.io.in.hi_data   := exu.io.out.dest_hi
-	reg.io.in.lo_data   := exu.io.out.dest_lo
-	// cp0
-	reg.io.in.cp0_read  := idu.io.contr.cp0_read
-	reg.io.in.cp0_write := idu.io.contr.cp0_write
-	reg.io.in.cp0_addr  := idu.io.out.rd
-	reg.io.in.cp0_sel   := ifu.io.out.inst(3, 0)
-
 	val branch = Module(new branch())
+	branch.io.in.pc     := pc
+	pc                  := branch.io.out.pc
 }
