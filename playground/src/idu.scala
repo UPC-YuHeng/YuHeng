@@ -97,7 +97,8 @@ class idu extends Module {
 		val call_src  = Bool()
 		val cmp_op    = UInt(3.W)
 		val branch    = Bool()
-		val jr        = Bool()
+		val jump      = Bool()
+		val jsrc      = Bool()
 		val signed    = Bool()
 	}
 	val io = IO(new Bundle {
@@ -348,12 +349,17 @@ class idu extends Module {
 		BLEZ    -> true.B,
 		BLTZ    -> true.B,
 		BGEZAL  -> true.B,
-		BLTZAL  -> true.B,
-		J       -> true.B,
-		JAL     -> true.B,
+		BLTZAL  -> true.B
 	))
 
-	io.contr.jr := Lookup(io.in.inst, false.B, Array(
+	io.contr.jump := Lookup(io.in.inst, false.B, Array(
+		J       -> true.B,
+		JAL     -> true.B,
+		JR      -> true.B,
+		JALR    -> true.B
+	))
+
+	io.contr.jsrc := Lookup(io.in.inst, false.B, Array(
 		JR      -> true.B,
 		JALR    -> true.B
 	))
