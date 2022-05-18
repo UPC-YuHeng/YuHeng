@@ -65,5 +65,11 @@ class cpu extends Module {
 
 	val branch = Module(new branch())
 	branch.io.in.pc     := pc
+	branch.io.in.branch := idu.io.contr.branch
+	branch.io.in.bcmp   := exu.io.out.cmp
+	branch.io.in.jump   := idu.io.contr.jump
+	branch.io.in.jsrc   := idu.io.contr.jsrc
+	branch.io.in.imm    := idu.io.out.imm
+	branch.io.in.reg    := reg.io.out.rs_data
 	pc                  := branch.io.out.pc
 }

@@ -5,9 +5,11 @@ class branch extends Module {
   class branch_in extends Bundle {
     val pc     = UInt(32.W)
     val branch = Bool()
+    val bcmp   = Bool()
     val jump   = Bool()
-    val cmp    = Bool()
-    val offset = UInt(32.W)
+    val jsrc   = Bool()
+    val imm    = UInt(32.W)
+    val reg    = UInt(32.W)
   }
   class branch_out extends Bundle {
     val pc = UInt(32.W)
@@ -16,4 +18,30 @@ class branch extends Module {
     val in  = Input(new branch_in())
     val out = Output(new branch_out())
   })
+
+  val b_pipe = new Pipe(Bool())
+  b_pipe.io.enq := io.in.branch & io.in.bcmp
+
+  val jump_pipe = new Pipe(Bool())
+  jump_pipe.io.enq := io.in.jump
+
+  val jsrc_pipe = new Pipe(Bool())
+  jsrc_pipe.io.enq := io.in.jump
+
+  val imm_pipe = new Pipe(UInt(32.W))
+  imm_pipe.io.enq := io.in.imm
+
+  val reg_pipe = new Pipe(UInt(32.W))
+  reg_pipe.io.enq := io.in.reg
+
+  io.out.pc := Mux(jump_pipe.io.deq,
+    Mux(jsrc_pipe.io.deq,
+      Cat(io.in.pc(31, 28), imm_pipe.io.deq(25, 0), 0.U(2.W)),
+      reg_pipe.io.deq
+    ),
+    Mux(b_pipe.io.deq,
+      io.in.pc + Cat(0.U(14.W), imm_pipe.io.deq(15, 0), 0.U(2.W)),
+      io.in.pc + 4.U
+    )
+  )
 }
