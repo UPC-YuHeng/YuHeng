@@ -7,9 +7,16 @@ class cpu extends Module {
 	val io = IO(new Bundle {
 	})
 
-	val pc = RegInit((0x80000000).U(32.W))
+	val pc = RegInit("h10000000".U(32.W))
+
+	val ifu = Module(new ifu())
+	val idu = Module(new idu())
+	val exu = Module(new exu())
+	val branch = Module(new branch())
 
 	val reg = Module(new reg())
+	val mem = Module(new mem())
+
 	// reg
 	reg.io.in.reg_write := idu.io.contr.reg_write
 	reg.io.in.rs_addr   := idu.io.out.rs
@@ -17,7 +24,7 @@ class cpu extends Module {
 	reg.io.in.rd_addr   := idu.io.out.rd
 	reg.io.in.rd_data   := Mux(idu.io.contr.mem_read,
 		MuxLookup(idu.io.contr.mem_mask, 0.U, Array(
-			1.U -> Cat(Fill(24, mem.io.rdata(7) & idu.io.contr.signed.asUInt()), mem.io.rdata( 7, 0)),
+			1.U -> Cat(Fill(24, mem.io.rdata( 7) & idu.io.contr.signed.asUInt()), mem.io.rdata( 7, 0)),
 			2.U -> Cat(Fill(16, mem.io.rdata(15) & idu.io.contr.signed.asUInt()), mem.io.rdata(15, 0)),
 			3.U -> mem.io.rdata
 		)),
@@ -38,7 +45,6 @@ class cpu extends Module {
 	reg.io.in.cp0_addr  := idu.io.out.rd
 	reg.io.in.cp0_sel   := ifu.io.out.inst(3, 0)
 
-	val mem = Module(new mem())
 	mem.io.ren   := idu.io.contr.mem_read
 	mem.io.wen   := idu.io.contr.mem_write
 	mem.io.raddr := reg.io.out.rt_data
@@ -50,20 +56,16 @@ class cpu extends Module {
 		3.U -> 0xf.U
 	))
 	
-	val ifu = Module(new ifu())
 	ifu.io.in.addr := pc
 
-	val idu = Module(new idu())
 	idu.io.in.inst := ifu.io.out.inst
 
-	val exu = Module(new exu())
 	exu.io.in.alu_op := idu.io.contr.alu_op
 	exu.io.in.cmp_op := idu.io.contr.cmp_op
 	exu.io.in.signed := idu.io.contr.signed
 	exu.io.in.srca   := reg.io.out.rs_data
 	exu.io.in.srcb   := Mux(idu.io.contr.alu_src, idu.io.out.imm, reg.io.out.rt_data)
 
-	val branch = Module(new branch())
 	branch.io.in.pc     := pc
 	branch.io.in.branch := idu.io.contr.branch
 	branch.io.in.bcmp   := exu.io.out.cmp

@@ -20,19 +20,19 @@ class branch extends Module {
   })
 
   val b_pipe = Module(new Pipe(Bool()))
-  b_pipe.io.enq := io.in.branch & io.in.bcmp
+  b_pipe.io.enq.bits := io.in.branch & io.in.bcmp
 
   val jump_pipe = Module(new Pipe(Bool()))
-  jump_pipe.io.enq := io.in.jump
+  jump_pipe.io.enq.bits := io.in.jump
 
   val jsrc_pipe = Module(new Pipe(Bool()))
-  jsrc_pipe.io.enq := io.in.jump
+  jsrc_pipe.io.enq.bits := io.in.jump
 
   val imm_pipe = Module(new Pipe(UInt(32.W)))
-  imm_pipe.io.enq := io.in.imm
+  imm_pipe.io.enq.bits := io.in.imm
 
   val reg_pipe = Module(new Pipe(UInt(32.W)))
-  reg_pipe.io.enq := io.in.reg
+  reg_pipe.io.enq.bits := io.in.reg
 
   io.out.pc := Mux(jump_pipe.io.deq.bits,
     Mux(jsrc_pipe.io.deq.bits,

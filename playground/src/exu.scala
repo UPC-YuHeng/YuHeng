@@ -27,13 +27,13 @@ class exu extends Module {
   io.out.dest_hi   := alu.io.out.dest_hi
   io.out.dest_lo   := alu.io.out.dest_lo
 
-  io.out.cmp := MuxLookup(Cat(io.in.signed.asUInt(),io.in.cmp_op), false.B, Array(
-    2.U -> alu.io.out.zero.asBool(),
-    3.U -> (~alu.io.out.zero).asBool(),
-    4.U -> alu.io.out.signu.asBool(),
-    5.U -> (alu.io.out.signu & (~alu.io.out.zero)).asBool(),
-    6.U -> ((~alu.io.out.signu) | alu.io.out.zero).asBool(),
-    7.U -> (~alu.io.out.signu).asBool(),
+  io.out.cmp := MuxLookup(Cat(io.in.signed.asUInt(), io.in.cmp_op), false.B, Array(
+     2.U -> alu.io.out.zero.asBool(),
+     3.U -> (~alu.io.out.zero).asBool(),
+     4.U -> alu.io.out.signu.asBool(),
+     5.U -> (alu.io.out.signu & (~alu.io.out.zero)).asBool(),
+     6.U -> ((~alu.io.out.signu) | alu.io.out.zero).asBool(),
+     7.U -> (~alu.io.out.signu).asBool(),
     10.U -> alu.io.out.zero.asBool(),
     11.U -> (~alu.io.out.zero).asBool(),
     12.U -> alu.io.out.signs.asBool(),

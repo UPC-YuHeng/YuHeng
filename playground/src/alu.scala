@@ -60,38 +60,37 @@ class alu extends Module {
   ))
 
   io.out.dest_hi := MuxLookup(io.in.alu_op, 0.U, Array(
-    alu_mults -> (a.asSInt() * b.asSInt()).asUInt()(63,32),
-    alu_multu -> ((a * b)(63,32)),
-    alu_divs  -> (a.asSInt() / b.asSInt()).asUInt()(63,32),
-    alu_divu  -> ((a / b)(63,32))
+    alu_mults -> (a.asSInt() * b.asSInt()).asUInt()(63, 32),
+    alu_multu -> ((a * b)(63, 32)),
+    alu_divs  -> (a.asSInt() / b.asSInt()).asUInt()(63, 32),
+    alu_divu  -> ((a / b)(63, 32))
   ))
 
   io.out.dest_lo := MuxLookup(io.in.alu_op, 0.U, Array(
-    alu_mults -> (a.asSInt() * b.asSInt()).asUInt()(31,0),
-    alu_multu -> ((a * b)(31,0)),
-    alu_divs  -> (a.asSInt() / b.asSInt()).asUInt()(31,0),
-    alu_divu  -> ((a / b)(31,0))
+    alu_mults -> (a.asSInt() * b.asSInt()).asUInt()(31, 0),
+    alu_multu -> ((a * b)(31, 0)),
+    alu_divs  -> (a.asSInt() / b.asSInt()).asUInt()(31, 0),
+    alu_divu  -> ((a / b)(31, 0))
   ))
 
   io.out.exceed := MuxLookup(io.in.alu_op, 0.U, Array(
-    alu_adds  -> ((Cat(a(31),a) + Cat(b(31),b))(32) =/= (Cat(a(31),a) + Cat(b(31),b))(31)),
-    alu_subs  -> ((Cat(a(31),a) - Cat(b(31),b))(32) =/= (Cat(a(31),a) - Cat(b(31),b))(31))
+    alu_adds  -> ((Cat(a(31), a) + Cat(b(31), b))(32) =/= (Cat(a(31), a) + Cat(b(31), b))(31)),
+    alu_subs  -> ((Cat(a(31), a) - Cat(b(31), b))(32) =/= (Cat(a(31), a) - Cat(b(31), b))(31))
   ))
 
   io.out.zero := (io.out.dest === 0.U).asUInt()
 
-  io.out.signs := MuxLookup(Cat(a(31),b(31)), 0.U, Array(
+  io.out.signs := MuxLookup(Cat(a(31), b(31)), 0.U, Array(
     "b10".U -> 0.U,
     "b01".U -> 1.U,
     "b00".U -> ~io.out.dest(31),
     "b11".U -> ~io.out.dest(31),
   ))
 
-  io.out.signu := MuxLookup(Cat(a(31),b(31)), 0.U, Array(
+  io.out.signu := MuxLookup(Cat(a(31), b(31)), 0.U, Array(
     "b10".U -> 1.U,
     "b01".U -> 0.U,
     "b00".U -> ~io.out.dest(31),
     "b11".U -> ~io.out.dest(31),
   ))
-
 }
