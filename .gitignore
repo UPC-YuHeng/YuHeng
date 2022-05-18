@@ -21,3 +21,4 @@ out/
 .idea_modules/
 test_run_dir/
 vsrc/
+obj_dir/
