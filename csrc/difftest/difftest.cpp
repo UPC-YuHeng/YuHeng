@@ -38,7 +38,7 @@ void init_difftest()
 
 void checkregs(uint32_t *ref_regs)
 {
-  printf("chect at dut_pc = %08x, ref_pc = %08x\n",cpu_gpr[32], ref_regs[32]);
+  // printf("chect at dut_pc = %08x, ref_pc = %08x\n",cpu_gpr[32], ref_regs[32]);
   for (int i = 0; i <= 32; ++i) {
     if (ref_regs[i] != cpu_gpr[i]) {
       printf("Error: Difftest failed at reg %d, pc = 0x%08x\n", i, cpu_gpr[32]);

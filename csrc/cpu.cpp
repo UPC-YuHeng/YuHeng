@@ -38,7 +38,6 @@ void debug_exit(int status)
 // Load image from am-kernels (Makefile -> ./image.bin)
 void load_image()
 {
-  puts("begin read img");
   char image_path[] = "/home/wcxmips/ics2020/nemu/main.bin";
   FILE *fp = fopen(image_path, "rb");
   fseek(fp, 0, SEEK_END);
@@ -46,7 +45,6 @@ void load_image()
   fseek(fp, 0, SEEK_SET);
   int ret = fread((mem+IMG_START), img_size, 1, fp);
   fclose(fp);
-  puts("finish read img");
 }
 
 void cpu_reset()
