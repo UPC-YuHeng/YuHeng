@@ -15,6 +15,7 @@ class cpu extends Module {
 	val branch = Module(new branch())
 
 	val reg = Module(new reg())
+	val tlb = Module(new tlb())
 	val mem = Module(new mem())
 	
 	// reg
@@ -51,11 +52,14 @@ class cpu extends Module {
 	// pc (for trace)
 	reg.io.in.pc        := pc
 
+	// tlb
+	tlb.io.in.addr := exu.io.out.dest
+
 	// mem
 	mem.io.ren   := idu.io.contr.mem_read
 	mem.io.wen   := idu.io.contr.mem_write
-	mem.io.raddr := exu.io.out.dest
-	mem.io.waddr := exu.io.out.dest
+	mem.io.raddr := tlb.io.out.addr
+	mem.io.waddr := tlb.io.out.addr
 	mem.io.wdata := reg.io.out.rt_data
 	mem.io.mask  := MuxLookup(idu.io.contr.mem_mask, 0.U, Array(
 		1.U -> 0x1.U,

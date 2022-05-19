@@ -15,9 +15,12 @@ class ifu extends Module {
 		val out = Output(new ifu_out())
 	})
 
+	val tlb = Module(new tlb())
+	tlb.io.in.addr := io.in.addr
+
 	val imem = Module(new mem())
   imem.io.ren   := true.B
   imem.io.wen   := false.B
-  imem.io.raddr := io.in.addr
+  imem.io.raddr := tlb.io.out.addr
   io.out.inst   := imem.io.rdata
 }

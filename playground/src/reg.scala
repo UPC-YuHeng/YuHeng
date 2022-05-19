@@ -1,6 +1,7 @@
 import chisel3._
 import chisel3.util._
-import yuheng.debug._
+
+import yuheng.debug.traceregs
 
 object CP0RegisterList {
   val badvaddr = 8.U
