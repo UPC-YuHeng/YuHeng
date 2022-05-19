@@ -90,6 +90,7 @@ class idu extends Module {
 		val lo_write  = Bool()
 		val hi_read   = Bool()
 		val lo_read   = Bool()
+		val hilo_src  = Bool()
 		val cp0_read  = Bool()
 		val cp0_write = Bool()
 		val mem_read  = Bool()
@@ -176,16 +177,16 @@ class idu extends Module {
 		SB      -> sext(),
 		SH      -> sext(),
 		SW      -> sext(),
-		J  		-> jext(),
-		JAL		-> jext(),
-		BLTZAL 	-> sext(),
-		BGEZAL 	-> sext(),
-		BLTZ 	-> sext(),
-		BLEZ 	-> sext(),
-		BGTZ	-> sext(),
-		BGEZ	-> sext(),
-		BNE		-> sext(),
-		BEQ		-> sext(),
+		J       -> jext(),
+		JAL     -> jext(),
+		BLTZAL  -> sext(),
+		BGEZAL  -> sext(),
+		BLTZ    -> sext(),
+		BLEZ    -> sext(),
+		BGTZ    -> sext(),
+		BGEZ    -> sext(),
+		BNE     -> sext(),
+		BEQ     -> sext()
 	))
 
 	io.contr.alu_op := Lookup(io.in.inst, alu_nop, Array(
@@ -225,15 +226,15 @@ class idu extends Module {
 		BLTZ    -> alu_subu,
 		BGEZAL  -> alu_subu,
 		BLTZAL  -> alu_subu,
-		LB		-> alu_adds,
-		LBU		-> alu_adds,
-		LH		-> alu_adds,
-		LHU		-> alu_adds,
-		LW		-> alu_adds,
-		SB		-> alu_adds,
-		SH		-> alu_adds,
-		SW		-> alu_adds,
-		LH		-> alu_adds,
+		LB      -> alu_adds,
+		LBU     -> alu_adds,
+		LH      -> alu_adds,
+		LHU     -> alu_adds,
+		LW      -> alu_adds,
+		SB      -> alu_adds,
+		SH      -> alu_adds,
+		SW      -> alu_adds,
+		LH      -> alu_adds,
 	))
 	
 	io.contr.alu_src := Lookup(io.in.inst, false.B, Array(
@@ -296,7 +297,7 @@ class idu extends Module {
 		LH      -> true.B,
 		LHU     -> true.B,
 		LW      -> true.B,
-		MFC0    -> true.B,
+		MFC0    -> true.B
 	))
 
 	io.contr.hi_write := Lookup(io.in.inst, false.B, Array(
@@ -304,7 +305,7 @@ class idu extends Module {
 		DIVU    -> true.B,
 		MULT    -> true.B,
 		MULTU   -> true.B,
-    MTHI    -> true.B,
+    MTHI    -> true.B
 	))
 
   io.contr.lo_write := Lookup(io.in.inst, false.B, Array(
@@ -312,15 +313,20 @@ class idu extends Module {
 		DIVU    -> true.B,
 		MULT    -> true.B,
 		MULTU   -> true.B,
-    MTLO    -> true.B,
+    MTLO    -> true.B
 	))
 
 	io.contr.hi_read := Lookup(io.in.inst, false.B, Array(
-		MFHI    -> true.B,
+		MFHI    -> true.B
 	))
 
 	io.contr.lo_read := Lookup(io.in.inst, false.B, Array(
-		MFLO    -> true.B,
+		MFLO    -> true.B
+	))
+
+	io.contr.hilo_src := Lookup(io.in.inst, false.B, Array(
+		MTHI    -> true.B,
+		MTLO    -> true.B
 	))
 
 	io.contr.cp0_read := Lookup(io.in.inst, false.B, Array(

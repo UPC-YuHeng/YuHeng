@@ -25,6 +25,7 @@ class reg extends Module {
     val lo_write  = Bool()
     val hi_read   = Bool()
     val lo_read   = Bool()
+    val hilo_src  = Bool()
     val hi_data   = UInt(32.W)
     val lo_data   = UInt(32.W)
     // cp0
@@ -67,13 +68,13 @@ class reg extends Module {
   }
 
   when (io.in.hi_write) {
-    reg_hi := io.in.hi_data
+    reg_hi := Mux(io.in.hilo_src, reg(io.in.rs_addr), io.in.hi_data)
   }
   when (io.in.lo_write) {
-    reg_lo := io.in.lo_data
+    reg_lo := Mux(io.in.hilo_src, reg(io.in.rs_addr), io.in.lo_data)
   }
 
-  // when (io.reset) { // TODO : io.reset not found
+  // when (reset) {
     // TODO(Zhang Sen): reset for cp0.
   // }
 
