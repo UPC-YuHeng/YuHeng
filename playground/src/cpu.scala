@@ -7,7 +7,7 @@ class cpu extends Module {
 	val io = IO(new Bundle {
 	})
 
-	val pc = RegInit("h10000000".U(32.W))
+	val pc = RegInit("hbfc00000".U(32.W))
 
 	val ifu = Module(new ifu())
 	val idu = Module(new idu())
@@ -16,12 +16,14 @@ class cpu extends Module {
 
 	val reg = Module(new reg())
 	val mem = Module(new mem())
-
+	
 	// reg
 	reg.io.in.reg_write := idu.io.contr.reg_write
 	reg.io.in.rs_addr   := idu.io.out.rs
 	reg.io.in.rt_addr   := idu.io.out.rt
-	reg.io.in.rd_addr   := idu.io.out.rd
+	reg.io.in.rd_addr   := MuxLookup(Cat(idu.io.contr.mem_read, idu.io.contr.call_src), idu.io.out.rd, Array(
+		1.U -> 31.U
+	))
 	reg.io.in.rd_data   := Mux(idu.io.contr.mem_read,
 		MuxLookup(idu.io.contr.mem_mask, 0.U, Array(
 			1.U -> Cat(Fill(24, mem.io.rdata( 7) & idu.io.contr.signed.asUInt()), mem.io.rdata( 7, 0)),
@@ -34,9 +36,10 @@ class cpu extends Module {
 		)
 	)
 	// hi/lo
-	reg.io.in.hilo_en   := idu.io.contr.hilo_en
-	reg.io.in.trans_hi  := idu.io.contr.trans_hi
-	reg.io.in.trans_lo  := idu.io.contr.trans_lo
+	reg.io.in.hi_write  := idu.io.contr.hi_write
+	reg.io.in.lo_write  := idu.io.contr.lo_write
+	reg.io.in.hi_read   := idu.io.contr.hi_read
+	reg.io.in.lo_read   := idu.io.contr.lo_read
 	reg.io.in.hi_data   := exu.io.out.dest_hi
 	reg.io.in.lo_data   := exu.io.out.dest_lo
 	// cp0
@@ -44,12 +47,14 @@ class cpu extends Module {
 	reg.io.in.cp0_write := idu.io.contr.cp0_write
 	reg.io.in.cp0_addr  := idu.io.out.rd
 	reg.io.in.cp0_sel   := ifu.io.out.inst(3, 0)
+	//pc
+	reg.io.in.pc 		:= pc
 
 	mem.io.ren   := idu.io.contr.mem_read
 	mem.io.wen   := idu.io.contr.mem_write
-	mem.io.raddr := reg.io.out.rt_data
-	mem.io.waddr := reg.io.out.rt_data
-	mem.io.wdata := exu.io.out.dest
+	mem.io.raddr := exu.io.out.dest
+	mem.io.waddr := exu.io.out.dest
+	mem.io.wdata := reg.io.out.rt_data
 	mem.io.mask  := MuxLookup(idu.io.contr.mem_mask, 0.U, Array(
 		1.U -> 0x1.U,
 		2.U -> 0x3.U,

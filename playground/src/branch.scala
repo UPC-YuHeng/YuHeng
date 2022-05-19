@@ -28,7 +28,7 @@ class branch extends Module {
   jump_pipe.io.enq.valid := true.B
 
   val jsrc_pipe = Module(new Pipe(Bool()))
-  jsrc_pipe.io.enq.bits := io.in.jump
+  jsrc_pipe.io.enq.bits := io.in.jsrc
   jsrc_pipe.io.enq.valid := true .B
 
   val imm_pipe = Module(new Pipe(UInt(32.W)))
@@ -41,11 +41,11 @@ class branch extends Module {
 
   io.out.pc := Mux(jump_pipe.io.deq.bits,
     Mux(jsrc_pipe.io.deq.bits,
-      Cat(io.in.pc(31, 28), imm_pipe.io.deq.bits(25, 0), 0.U(2.W)),
-      reg_pipe.io.deq.bits
+      reg_pipe.io.deq.bits,
+      Cat(io.in.pc(31, 28), imm_pipe.io.deq.bits(25, 0), 0.U(2.W))
     ),
     Mux(b_pipe.io.deq.bits,
-      io.in.pc + Cat(0.U(14.W), imm_pipe.io.deq.bits(15, 0), 0.U(2.W)),
+      io.in.pc + Cat(Fill(14, imm_pipe.io.deq.bits(15)), imm_pipe.io.deq.bits(15, 0), 0.U(2.W)),
       io.in.pc + 4.U
     )
   )

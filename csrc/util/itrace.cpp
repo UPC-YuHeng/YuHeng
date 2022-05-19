@@ -94,7 +94,7 @@ extern "C" void disassemble(char *str, uint64_t pc, uint8_t *code, int nbyte)
 int ring_pos = SIZE_RINGBUF - 1;
 char ringbuf[SIZE_RINGBUF][LEN_RINGBUF];
 
-void itrace_record(uint64_t pc)
+void itrace_record(uint32_t pc)
 {
   if (pc < MEM_BASE) return;
   // ring_pos

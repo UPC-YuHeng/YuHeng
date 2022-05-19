@@ -47,5 +47,5 @@ class exu extends Module {
     // 8 -> NOP, 9 -> Reserved, 10 -> "==", 11 -> "!="
 		// 12 -> ">=", 13 -> ">", 14 -> "<=", 15 -> "<"
   ))
-  io.out.dest := Mux(io.out.cmp, 1.U, alu.io.out.dest)
+  io.out.dest := Mux(io.in.cmp_op === 0.U, alu.io.out.dest, Mux(io.out.cmp, 1.U, 0.U))
 }

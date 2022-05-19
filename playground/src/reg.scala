@@ -1,5 +1,6 @@
 import chisel3._
 import chisel3.util._
+import yuheng.debug._
 
 object CP0RegisterList {
   val badvaddr = 8.U
@@ -20,9 +21,10 @@ class reg extends Module {
     val rd_addr   = UInt(5.W)
     val rd_data   = UInt(32.W)
     // hi/lo
-    val hilo_en   = Bool()
-    val trans_hi  = Bool()
-    val trans_lo  = Bool()
+    val hi_write  = Bool()
+    val lo_write  = Bool()
+    val hi_read   = Bool()
+    val lo_read   = Bool()
     val hi_data   = UInt(32.W)
     val lo_data   = UInt(32.W)
     // cp0
@@ -30,6 +32,8 @@ class reg extends Module {
     val cp0_write = Bool()
     val cp0_addr  = UInt(5.W)
     val cp0_sel   = UInt(3.W)
+    //pc for difftest
+    val pc        = UInt(32.W)
   }
   class reg_out extends Bundle {
     // regfile
@@ -52,8 +56,8 @@ class reg extends Module {
   io.out.rt_data := reg(io.in.rt_addr)
 
   when (io.in.reg_write) {
-    reg(io.in.rd_addr) := Mux(io.in.trans_hi,
-      reg_hi, Mux(io.in.trans_lo,
+    reg(io.in.rd_addr) := Mux(io.in.hi_read,
+      reg_hi, Mux(io.in.lo_read,
         reg_lo, Mux(io.in.cp0_read,
           cp0(io.in.cp0_addr),
           io.in.rd_data
@@ -62,12 +66,14 @@ class reg extends Module {
     )
   }
 
-  when (io.in.hilo_en) {
+  when (io.in.hi_write) {
     reg_hi := io.in.hi_data
+  }
+  when (io.in.lo_write) {
     reg_lo := io.in.lo_data
   }
 
-  // when (io.reset) { // TODO(wcx) : io.reset not found
+  // when (io.reset) { // TODO : io.reset not found
     // TODO(Zhang Sen): reset for cp0.
   // }
 
@@ -76,4 +82,8 @@ class reg extends Module {
   }
 
   reg(0) := 0.U
+
+  val traceregs = Module(new traceregs())
+  traceregs.io.pc := io.in.pc
+  traceregs.io.rf := reg 
 }

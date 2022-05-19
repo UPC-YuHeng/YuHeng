@@ -37,7 +37,7 @@ object InstructionList {
 	val BEQ     = BitPat("b000100 ????? ????? ????? ????? ??????")
 	val BNE     = BitPat("b000101 ????? ????? ????? ????? ??????")
 	val BGEZ    = BitPat("b000001 ????? 00001 ????? ????? ??????")
-	val BGTZ    = BitPat("b000111 ????? 00001 ????? ????? ??????")
+	val BGTZ    = BitPat("b000111 ????? 00000 ????? ????? ??????")
 	val BLEZ    = BitPat("b000110 ????? 00000 ????? ????? ??????")
 	val BLTZ    = BitPat("b000001 ????? 00000 ????? ????? ??????")
 	val BGEZAL  = BitPat("b000001 ????? 10001 ????? ????? ??????")
@@ -86,9 +86,10 @@ class idu extends Module {
 		val alu_op    = UInt(4.W)
 		val alu_src   = Bool()
 		val reg_write = Bool()
-		val hilo_en   = Bool()
-		val trans_hi  = Bool()
-		val trans_lo  = Bool()
+		val hi_write  = Bool()
+		val lo_write  = Bool()
+		val hi_read   = Bool()
+		val lo_read   = Bool()
 		val cp0_read  = Bool()
 		val cp0_write = Bool()
 		val mem_read  = Bool()
@@ -115,7 +116,10 @@ class idu extends Module {
 	io.out.rs := Lookup(io.in.inst, rs, Array(
 		SLLV    -> rt,
 		SRAV    -> rt,
-		SRLV    -> rt
+		SRLV    -> rt,
+		SLL	  	-> rt,
+		SRA		  -> rt,
+		SRL 	  -> rt,
 	))
 
 	io.out.rt := Lookup(io.in.inst, rt, Array(
@@ -150,6 +154,7 @@ class idu extends Module {
 	def zext() = Cat(0.U(16.W), io.in.inst(15, 0))										// Zero Extended
 	def lext() = Cat(io.in.inst(15, 0), 0.U(16.W))										// LUI
 	def fext() = Cat(0.U(27.W), sa)																		// SLL/SRA/SRL
+	def jext() = Cat(0.U(6.W), io.in.inst(25,0))											// JAL
 
 	io.out.imm := Lookup(io.in.inst, sext(), Array(
 		ADDI    -> sext(),
@@ -170,7 +175,17 @@ class idu extends Module {
 		LW      -> sext(),
 		SB      -> sext(),
 		SH      -> sext(),
-		SW      -> sext()
+		SW      -> sext(),
+		J  		-> jext(),
+		JAL		-> jext(),
+		BLTZAL 	-> sext(),
+		BGEZAL 	-> sext(),
+		BLTZ 	-> sext(),
+		BLEZ 	-> sext(),
+		BGTZ	-> sext(),
+		BGEZ	-> sext(),
+		BNE		-> sext(),
+		BEQ		-> sext(),
 	))
 
 	io.contr.alu_op := Lookup(io.in.inst, alu_nop, Array(
@@ -209,7 +224,16 @@ class idu extends Module {
 		BLEZ    -> alu_subu,
 		BLTZ    -> alu_subu,
 		BGEZAL  -> alu_subu,
-		BLTZAL  -> alu_subu
+		BLTZAL  -> alu_subu,
+		LB		-> alu_adds,
+		LBU		-> alu_adds,
+		LH		-> alu_adds,
+		LHU		-> alu_adds,
+		LW		-> alu_adds,
+		SB		-> alu_adds,
+		SH		-> alu_adds,
+		SW		-> alu_adds,
+		LH		-> alu_adds,
 	))
 	
 	io.contr.alu_src := Lookup(io.in.inst, false.B, Array(
@@ -224,6 +248,15 @@ class idu extends Module {
 		SLL     -> true.B,
 		SRA     -> true.B,
 		SRL     -> true.B,
+		LB	  	-> true.B,
+		LBU	  	-> true.B,
+		LH	  	-> true.B,
+		LHU	  	-> true.B,
+		LW	  	-> true.B,
+		SB	  	-> true.B,
+		SH	  	-> true.B,
+		SW	  	-> true.B,
+		LH	  	-> true.B,
 	))
 
 	io.contr.reg_write := Lookup(io.in.inst, false.B, Array(
@@ -263,24 +296,31 @@ class idu extends Module {
 		LH      -> true.B,
 		LHU     -> true.B,
 		LW      -> true.B,
-		MFC0    -> true.B
+		MFC0    -> true.B,
 	))
 
-	io.contr.hilo_en := Lookup(io.in.inst, false.B, Array(
+	io.contr.hi_write := Lookup(io.in.inst, false.B, Array(
 		DIV     -> true.B,
 		DIVU    -> true.B,
 		MULT    -> true.B,
-		MULTU   -> true.B
+		MULTU   -> true.B,
+    MTHI    -> true.B,
 	))
 
-	io.contr.trans_hi := Lookup(io.in.inst, false.B, Array(
+  io.contr.lo_write := Lookup(io.in.inst, false.B, Array(
+		DIV     -> true.B,
+		DIVU    -> true.B,
+		MULT    -> true.B,
+		MULTU   -> true.B,
+    MTLO    -> true.B,
+	))
+
+	io.contr.hi_read := Lookup(io.in.inst, false.B, Array(
 		MFHI    -> true.B,
-		MTHI    -> true.B
 	))
 
-	io.contr.trans_lo := Lookup(io.in.inst, false.B, Array(
+	io.contr.lo_read := Lookup(io.in.inst, false.B, Array(
 		MFLO    -> true.B,
-		MTLO    -> true.B
 	))
 
 	io.contr.cp0_read := Lookup(io.in.inst, false.B, Array(
@@ -321,7 +361,7 @@ class idu extends Module {
 		BGEZAL  -> true.B,
 		BLTZAL  -> true.B,
 		JAL     -> true.B,
-		JALR    -> true.B
+		JALR    -> true.B,
 	))
 
 	io.contr.cmp_op := Lookup(io.in.inst, 0.U, Array(

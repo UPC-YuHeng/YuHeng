@@ -1,6 +1,6 @@
 // ========================= CONFIG =========================
-// #define CONFIG_GTKWAVE
-#define CONFIG_ITRACE
+#define CONFIG_GTKWAVE
+// #define CONFIG_ITRACE
 #define CONFIG_DIFFTEST
 
 #include <cstdio>
@@ -22,18 +22,18 @@ typedef long long ll;
 #define COLOR_NONE    "\33[0m"
 
 // =============== Memory ===============
-#define MEM_BASE 0x80000000
-#define MEM_SIZE 65536
-
+#define MEM_BASE 0x00000000
+#define MEM_SIZE 512*1024*1204
+#define IMG_START 0x1fc00000
 extern uint8_t mem[MEM_SIZE];
 extern long long img_size;
-extern uint64_t *cpu_gpr;
+extern uint32_t *cpu_gpr;
 
 void debug_exit(int status);
 void init_difftest();
-void checkregs(uint64_t *ref_regs);
+void checkregs(uint32_t *ref_regs);
 void difftest_exec_once();
 extern "C" void init_disasm(const char *triple);
 uint8_t* cpu2mem(ll addr);
-void itrace_record(uint64_t pc);
+void itrace_record(uint32_t pc);
 void itrace_output();

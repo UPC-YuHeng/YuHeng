@@ -54,7 +54,7 @@ class alu extends Module {
     alu_xor   -> (a ^ b),
     alu_nor   -> (~(a | b)),
     alu_or    -> (a | b),
-    alu_sftrs -> ((a.asSInt() >> b).asUInt()),
+    alu_sftrs -> ((a.asSInt() >> b(4,0)).asUInt()),
     alu_sftru -> (a >> b(4,0)),
     alu_sftl  -> (a << b(4,0))
   ))
