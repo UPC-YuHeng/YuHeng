@@ -13,10 +13,10 @@ class alu extends Module {
     val dest    = UInt(32.W)
     val dest_hi = UInt(32.W)
     val dest_lo = UInt(32.W)
-    val exceed  = UInt(1.W)
-    val zero    = UInt(1.W)
-    val signu   = UInt(1.W)
-    val signs   = UInt(1.W)
+    val exceed  = Bool()
+    val zero    = Bool()
+    val signu   = Bool()
+    val signs   = Bool()
   }
   val io = IO(new Bundle {
     val in  = Input(new alu_in())

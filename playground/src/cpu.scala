@@ -18,6 +18,8 @@ class cpu extends Module {
 	val mem = Module(new mem())
 	val cp0 = Module(new cp0())
 	val tlb  = Module(new tlb())
+
+	val intr = exu.io.intr.exceed
 	
 	// reg
 	reg.io.in.reg_write := idu.io.contr.reg_write
@@ -62,12 +64,16 @@ class cpu extends Module {
 	))
 
 	// cp0
-	cp0.io.in.write  := idu.io.contr.cp0_write
-	cp0.io.in.addr   := idu.io.out.rd
-	cp0.io.in.sel    := ifu.io.out.inst(3, 0)
-	cp0.io.in.data   := reg.io.out.rt_data
+	cp0.io.in.write := idu.io.contr.cp0_write
+	cp0.io.in.addr  := idu.io.out.rd
+	cp0.io.in.sel   := ifu.io.out.inst(3, 0)
+	cp0.io.in.data  := reg.io.out.rt_data
+	cp0.io.in.epc   := branch.io.intr.epc
 	// intr
-	cp0.io.intr.eret := idu.io.intr.eret
+	cp0.io.intr.intr   := intr
+	cp0.io.intr.branch := branch.io.out.branch
+	cp0.io.intr.exceed := exu.io.intr.exceed
+	cp0.io.intr.eret   := idu.io.intr.eret
 
 	// tlb
 	tlb.io.in.addr := exu.io.out.dest
@@ -95,7 +101,9 @@ class cpu extends Module {
 	branch.io.in.imm    := idu.io.out.imm
 	branch.io.in.reg    := reg.io.out.rs_data
 	// intr
+	branch.io.intr.intr := intr
 	branch.io.intr.eret := idu.io.intr.eret
 	branch.io.intr.epc  := cp0.io.out.epc
+	// next pc
 	pc                  := branch.io.out.pc
 }

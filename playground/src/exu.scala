@@ -15,9 +15,13 @@ class exu extends Module {
     val dest_lo = UInt(32.W)
     val cmp     = Bool()
   }
+  class exu_intr extends Bundle {
+    val exceed = Bool()
+  }
   val io = IO(new Bundle {
-    val in  = Input(new exu_in())
-    val out = Output(new exu_out())
+    val in   = Input(new exu_in())
+    val out  = Output(new exu_out())
+    val intr = Output(new exu_intr())
   })
 
   val alu = Module(new alu())
@@ -43,5 +47,8 @@ class exu extends Module {
     0xe.U -> ((~alu.io.out.signs) | alu.io.out.zero).asBool(),
     0xf.U -> (~alu.io.out.signs).asBool(),
   ))
+
   io.out.dest := Mux(io.in.cmp_op === 0.U, alu.io.out.dest, Mux(io.out.cmp, 1.U, 0.U))
+
+  io.intr.exceed := alu.io.out.exceed
 }
