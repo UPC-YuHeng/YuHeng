@@ -5,6 +5,7 @@ import yuheng.debug.mem
 
 class cpu extends Module {
   val io = IO(new Bundle {
+    val int = Input(UInt(6.W))
   })
 
   val pc = RegInit("hbfc00000".U(32.W))
@@ -17,9 +18,7 @@ class cpu extends Module {
   val reg = Module(new reg())
   val mem = Module(new mem())
   val cp0 = Module(new cp0())
-  val tlb  = Module(new tlb())
-
-  val intr = exu.io.intr.exceed
+  val tlb = Module(new tlb())
   
   // reg
   reg.io.in.reg_write := idu.io.contr.reg_write
@@ -62,18 +61,40 @@ class cpu extends Module {
     2.U -> 0x3.U,
     3.U -> 0xf.U
   ))
+  val mem_addrrd = (idu.io.contr.mem_read & MuxLookup(idu.io.contr.mem_mask, false.B, Array(
+    2.U -> tlb.io.out.addr(0),
+    3.U -> tlb.io.out.addr(1, 0).orR
+  )))
+  val mem_addrwt = (idu.io.contr.mem_write & MuxLookup(idu.io.contr.mem_mask, false.B, Array(
+    2.U -> tlb.io.out.addr(0),
+    3.U -> tlb.io.out.addr(1, 0).orR
+  )))
 
   // cp0
   cp0.io.in.write := idu.io.contr.cp0_write
   cp0.io.in.addr  := idu.io.out.rd
   cp0.io.in.sel   := ifu.io.out.inst(3, 0)
   cp0.io.in.data  := reg.io.out.rt_data
+  cp0.io.in.int   := io.int
+  cp0.io.in.pc    := pc
   cp0.io.in.epc   := branch.io.intr.epc
   // intr
-  cp0.io.intr.intr   := intr
-  cp0.io.intr.branch := branch.io.out.branch
-  cp0.io.intr.exceed := exu.io.intr.exceed
-  cp0.io.intr.eret   := idu.io.intr.eret
+  val intr = (io.int.orR |
+    ifu.io.intr.addrrd | mem_addrrd |
+    mem_addrwt |
+    exu.io.intr.exceed |
+    idu.io.intr.syscall |
+    idu.io.intr.breakpt |
+    idu.io.intr.resinst)
+  cp0.io.intr.intr    := intr
+  cp0.io.intr.branch  := branch.io.out.branch
+  cp0.io.intr.addrrd  := ifu.io.intr.addrrd | mem_addrrd
+  cp0.io.intr.addrwt  := mem_addrwt
+  cp0.io.intr.exceed  := exu.io.intr.exceed
+  cp0.io.intr.syscall := idu.io.intr.syscall
+  cp0.io.intr.breakpt := idu.io.intr.breakpt
+  cp0.io.intr.resinst := idu.io.intr.resinst
+  cp0.io.intr.eret    := idu.io.intr.eret
 
   // tlb
   tlb.io.in.addr := exu.io.out.dest

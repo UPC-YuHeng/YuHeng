@@ -42,6 +42,9 @@ class idu extends Module {
     val cp0_write = Bool()
   }
   class idu_intr extends Bundle {
+    val syscall   = Bool()
+    val breakpt   = Bool()
+    val resinst   = Bool()
     val eret      = Bool()
   }
   val io = IO(new Bundle {
@@ -60,9 +63,9 @@ class idu extends Module {
     SLLV    -> rt,
     SRAV    -> rt,
     SRLV    -> rt,
-    SLL	  	-> rt,
-    SRA		  -> rt,
-    SRL 	  -> rt,
+    SLL      -> rt,
+    SRA      -> rt,
+    SRL     -> rt
   ))
 
   io.out.rt := Lookup(io.in.inst, rt, Array(
@@ -93,11 +96,11 @@ class idu extends Module {
     LW      -> rt
   ))
 
-  def sext() = Cat(Fill(16, io.in.inst(15)), io.in.inst(15, 0))			// Sign Extended
-  def zext() = Cat(0.U(16.W), io.in.inst(15, 0))										// Zero Extended
-  def lext() = Cat(io.in.inst(15, 0), 0.U(16.W))										// LUI
-  def fext() = Cat(0.U(27.W), sa)																		// SLL/SRA/SRL
-  def jext() = Cat(0.U(6.W), io.in.inst(25,0))											// JAL
+  def sext() = Cat(Fill(16, io.in.inst(15)), io.in.inst(15, 0))      // Sign Extended
+  def zext() = Cat(0.U(16.W), io.in.inst(15, 0))                    // Zero Extended
+  def lext() = Cat(io.in.inst(15, 0), 0.U(16.W))                    // LUI
+  def fext() = Cat(0.U(27.W), sa)                                    // SLL/SRA/SRL
+  def jext() = Cat(0.U(6.W), io.in.inst(25,0))                      // JAL
 
   io.out.imm := Lookup(io.in.inst, sext(), Array(
     ADDI    -> sext(),
@@ -150,8 +153,8 @@ class idu extends Module {
     ANDI    -> alu_and,
     LUI     -> alu_or,
     NOR     -> alu_nor,
-    OR      -> alu_or,	
-    ORI     -> alu_or,	
+    OR      -> alu_or,  
+    ORI     -> alu_or,  
     XOR     -> alu_xor,
     XORI    -> alu_xor,
     SLLV    -> alu_sftl,
@@ -175,8 +178,7 @@ class idu extends Module {
     LW      -> alu_adds,
     SB      -> alu_adds,
     SH      -> alu_adds,
-    SW      -> alu_adds,
-    LH      -> alu_adds,
+    SW      -> alu_adds
   ))
   
   io.contr.alu_src := Lookup(io.in.inst, false.B, Array(
@@ -191,15 +193,14 @@ class idu extends Module {
     SLL     -> true.B,
     SRA     -> true.B,
     SRL     -> true.B,
-    LB	  	-> true.B,
-    LBU	  	-> true.B,
-    LH	  	-> true.B,
-    LHU	  	-> true.B,
-    LW	  	-> true.B,
-    SB	  	-> true.B,
-    SH	  	-> true.B,
-    SW	  	-> true.B,
-    LH	  	-> true.B,
+    LB      -> true.B,
+    LBU      -> true.B,
+    LH      -> true.B,
+    LHU      -> true.B,
+    LW      -> true.B,
+    SB      -> true.B,
+    SH      -> true.B,
+    SW      -> true.B,
   ))
 
   io.contr.reg_write := Lookup(io.in.inst, false.B, Array(
@@ -301,7 +302,7 @@ class idu extends Module {
     BGEZAL  -> true.B,
     BLTZAL  -> true.B,
     JAL     -> true.B,
-    JALR    -> true.B,
+    JALR    -> true.B
   ))
 
   io.contr.cmp_op := Lookup(io.in.inst, 0.U, Array(
@@ -318,7 +319,7 @@ class idu extends Module {
     BLEZ    -> 6.U,
     BLTZ    -> 7.U,
     BGEZAL  -> 4.U,
-    BLTZAL  -> 7.U,
+    BLTZAL  -> 7.U
   ))
 
   io.contr.branch := Lookup(io.in.inst, false.B, Array(
@@ -366,6 +367,74 @@ class idu extends Module {
 
   io.contr.cp0_write := Lookup(io.in.inst, false.B, Array(
     MTC0    -> true.B
+  ))
+
+  io.intr.syscall := Lookup(io.in.inst, false.B, Array(
+    SYSCALL -> true.B
+  ))
+
+  io.intr.breakpt := Lookup(io.in.inst, false.B, Array(
+    BREAK   -> true.B
+  ))
+
+  io.intr.resinst := Lookup(io.in.inst, true.B, Array(
+    ADD     -> false.B,
+    ADDI    -> false.B,
+    ADDU    -> false.B,
+    ADDIU   -> false.B,
+    SUB     -> false.B,
+    SUBU    -> false.B,
+    SLT     -> false.B,
+    SLTI    -> false.B,
+    SLTU    -> false.B,
+    SLTIU   -> false.B,
+    DIV     -> false.B,
+    DIVU    -> false.B,
+    MULT    -> false.B,
+    MULTU   -> false.B,
+    AND     -> false.B,
+    ANDI    -> false.B,
+    LUI     -> false.B,
+    NOR     -> false.B,
+    OR      -> false.B,
+    ORI     -> false.B,
+    XOR     -> false.B,
+    XORI    -> false.B,
+    SLLV    -> false.B,
+    SLL     -> false.B,
+    SRAV    -> false.B,
+    SRA     -> false.B,
+    SRLV    -> false.B,
+    SRL     -> false.B,
+    BEQ     -> false.B,
+    BNE     -> false.B,
+    BGEZ    -> false.B,
+    BGTZ    -> false.B,
+    BLEZ    -> false.B,
+    BLTZ    -> false.B,
+    BGEZAL  -> false.B,
+    BLTZAL  -> false.B,
+    J       -> false.B,
+    JAL     -> false.B,
+    JR      -> false.B,
+    JALR    -> false.B,
+    MFHI    -> false.B,
+    MFLO    -> false.B,
+    MTHI    -> false.B,
+    MTLO    -> false.B,
+    BREAK   -> false.B,
+    SYSCALL -> false.B,
+    LB      -> false.B,
+    LBU     -> false.B,
+    LH      -> false.B,
+    LHU     -> false.B,
+    LW      -> false.B,
+    SB      -> false.B,
+    SH      -> false.B,
+    SW      -> false.B,
+    ERET    -> false.B,
+    MFC0    -> false.B,
+    MTC0    -> false.B
   ))
 
   io.intr.eret := Lookup(io.in.inst, false.B, Array(
