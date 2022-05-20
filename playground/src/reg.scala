@@ -34,7 +34,7 @@ class reg extends Module {
     val cp0_write = Bool()
     val cp0_addr  = UInt(5.W)
     val cp0_sel   = UInt(3.W)
-    //pc for difftest
+    // pc for difftest
     val pc        = UInt(32.W)
   }
   class reg_out extends Bundle {
@@ -75,9 +75,11 @@ class reg extends Module {
     reg_lo := Mux(io.in.hilo_src, reg(io.in.rs_addr), io.in.lo_data)
   }
 
-  // when (reset) {
-    // TODO(Zhang Sen): reset for cp0.
-  // }
+  // reset for cp0
+  when (reset.asBool()) {
+    cp0(status) := Cat(0x0040.U(16.W), cp0(status)(15, 8), 0.U(8.W))
+    cp0(cause)  := 0.U
+  }
 
   when (io.in.cp0_write) {
     cp0(io.in.cp0_addr) := reg(io.in.rt_addr)
