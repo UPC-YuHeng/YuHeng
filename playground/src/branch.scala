@@ -14,9 +14,14 @@ class branch extends Module {
   class branch_out extends Bundle {
     val pc = UInt(32.W)
   }
+  class branch_intr extends Bundle {
+    val eret = Bool()
+    val epc  = UInt(32.W)
+  }
   val io = IO(new Bundle {
-    val in  = Input(new branch_in())
-    val out = Output(new branch_out())
+    val in   = Input(new branch_in())
+    val out  = Output(new branch_out())
+    val intr = Input(new branch_intr())
   })
 
   val b_pipe = Module(new Pipe(Bool()))
@@ -39,7 +44,7 @@ class branch extends Module {
   reg_pipe.io.enq.bits  := io.in.reg
   reg_pipe.io.enq.valid := true.B
 
-  io.out.pc := Mux(jump_pipe.io.deq.bits,
+  val npc = Mux(jump_pipe.io.deq.bits,
     Mux(jsrc_pipe.io.deq.bits,
       reg_pipe.io.deq.bits,
       Cat(io.in.pc(31, 28), imm_pipe.io.deq.bits(25, 0), 0.U(2.W))
@@ -49,4 +54,6 @@ class branch extends Module {
       io.in.pc + 4.U
     )
   )
+
+  io.out.pc := Mux(io.intr.eret, io.intr.epc, npc)
 }

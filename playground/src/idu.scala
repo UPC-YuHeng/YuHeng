@@ -83,8 +83,10 @@ class idu extends Module {
 		val imm = UInt(32.W)
 	}
 	class idu_contr extends Bundle {
+		// alu
 		val alu_op    = UInt(4.W)
 		val alu_src   = Bool()
+		// reg
 		val reg_write = Bool()
 		val hi_write  = Bool()
 		val lo_write  = Bool()
@@ -93,20 +95,27 @@ class idu extends Module {
 		val hilo_src  = Bool()
 		val cp0_read  = Bool()
 		val cp0_write = Bool()
+		// mem
 		val mem_read  = Bool()
 		val mem_write = Bool()
 		val mem_mask  = UInt(2.W)
-		val call_src  = Bool()
-		val cmp_op    = UInt(3.W)
+		// branch & jump
 		val branch    = Bool()
+		val cmp_op    = UInt(3.W)
 		val jump      = Bool()
 		val jsrc      = Bool()
+		val call_src  = Bool()
+		// signed / unsigned
 		val signed    = Bool()
+	}
+	class idu_intr extends Bundle {
+		val eret      = Bool()
 	}
 	val io = IO(new Bundle {
 		val in    = Input(new idu_in())
 		val out   = Output(new idu_out())
 		val contr = Output(new idu_contr())
+		val intr  = Output(new idu_intr())
 	})
 
 	val rs     = io.in.inst(25, 21)
@@ -413,8 +422,6 @@ class idu extends Module {
 	io.contr.signed := Lookup(io.in.inst, false.B, Array(
 		SLT     -> true.B,
 		SLTI    -> true.B,
-		SLTU    -> false.B,
-		SLTIU   -> false.B,
 		BEQ     -> true.B,
 		BNE     -> true.B,
 		BGEZ    -> true.B,
@@ -424,9 +431,11 @@ class idu extends Module {
 		BGEZAL  -> true.B,
 		BLTZAL  -> true.B,
 		LB      -> true.B,
-		LBU     -> false.B,
 		LH      -> true.B,
-		LHU     -> false.B,
 		LW      -> true.B
+	))
+
+	io.intr.eret := Lookup(io.in.inst, false.B, Array(
+		ERET    -> true.B
 	))
 }

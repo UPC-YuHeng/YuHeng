@@ -49,6 +49,8 @@ class cpu extends Module {
 	reg.io.in.cp0_write := idu.io.contr.cp0_write
 	reg.io.in.cp0_addr  := idu.io.out.rd
 	reg.io.in.cp0_sel   := ifu.io.out.inst(3, 0)
+	// intr
+	reg.io.intr.eret    := idu.io.intr.eret
 	// pc (for trace)
 	reg.io.in.pc        := pc
 
@@ -88,5 +90,7 @@ class cpu extends Module {
 	branch.io.in.jsrc   := idu.io.contr.jsrc
 	branch.io.in.imm    := idu.io.out.imm
 	branch.io.in.reg    := reg.io.out.rs_data
+	branch.io.intr.eret := idu.io.intr.eret
+	branch.io.intr.epc  := reg.io.out.epc
 	pc                  := branch.io.out.pc
 }

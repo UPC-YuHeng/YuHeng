@@ -41,10 +41,16 @@ class reg extends Module {
     // regfile
     val rs_data = UInt(32.W)
     val rt_data = UInt(32.W)
+    // cp0
+    val epc     = UInt(32.W)
+  }
+  class reg_intr extends Bundle {
+    val eret = Bool()
   }
   val io = IO(new Bundle {
-    val in  = Input(new reg_in())
-    val out = Output(new reg_out())
+    val in   = Input(new reg_in())
+    val out  = Output(new reg_out())
+    val intr = Input(new reg_intr())
   })
 
   val reg = RegInit(VecInit(Seq.fill(32)(0.U(32.W))))
@@ -67,6 +73,7 @@ class reg extends Module {
       )
     )
   }
+  reg(0) := 0.U
 
   when (io.in.hi_write) {
     reg_hi := Mux(io.in.hilo_src, reg(io.in.rs_addr), io.in.hi_data)
@@ -85,7 +92,11 @@ class reg extends Module {
     cp0(io.in.cp0_addr) := reg(io.in.rt_addr)
   }
 
-  reg(0) := 0.U
+  when (io.intr.eret) {
+    cp0(status) := Cat(cp0(status)(31, 2), 0.U(1.W), cp0(status)(0))
+  }
+
+  io.out.epc := cp0(epc)
 
   val traceregs = Module(new traceregs())
   traceregs.io.pc := io.in.pc
