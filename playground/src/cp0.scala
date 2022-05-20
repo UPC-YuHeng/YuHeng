@@ -31,7 +31,13 @@ class cp0 extends Module {
   }
 
   when (io.in.write) {
-    cp0(io.in.addr) := io.in.data
+    cp0(io.in.addr) := ListLookup(io.in.addr, cp0(io.in.addr), Array(
+      badvaddr -> cp0(io.in.addr),
+      count    -> io.in.data,
+      status   -> Cat(cp0(io.in.addr)(31, 16), io.in.data(15, 8), cp0(io.in.addr)(7, 2), io.in.data(1, 0)),
+      cause    -> Cat(cp0(io.in.addr)(31, 10), io.in.data(9, 8), cp0(io.in.addr)(7, 0)),
+      epc      -> io.in.data
+    ))
   }
 
   when (io.intr.eret) {
