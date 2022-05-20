@@ -9,14 +9,15 @@ class cpu extends Module {
 
 	val pc = RegInit("hbfc00000".U(32.W))
 
-	val ifu = Module(new ifu())
-	val idu = Module(new idu())
-	val exu = Module(new exu())
+	val ifu    = Module(new ifu())
+	val idu    = Module(new idu())
+	val exu    = Module(new exu())
 	val branch = Module(new branch())
 
 	val reg = Module(new reg())
-	val tlb = Module(new tlb())
 	val mem = Module(new mem())
+	val cp0 = Module(new cp0())
+	val tlb  = Module(new tlb())
 	
 	// reg
 	reg.io.in.reg_write := idu.io.contr.reg_write
@@ -46,16 +47,7 @@ class cpu extends Module {
 	reg.io.in.lo_data   := exu.io.out.dest_lo
 	// cp0
 	reg.io.in.cp0_read  := idu.io.contr.cp0_read
-	reg.io.in.cp0_write := idu.io.contr.cp0_write
-	reg.io.in.cp0_addr  := idu.io.out.rd
-	reg.io.in.cp0_sel   := ifu.io.out.inst(3, 0)
-	// intr
-	reg.io.intr.eret    := idu.io.intr.eret
-	// pc (for trace)
-	reg.io.in.pc        := pc
-
-	// tlb
-	tlb.io.in.addr := exu.io.out.dest
+	reg.io.in.cp0_data  := cp0.io.out.data
 
 	// mem
 	mem.io.ren   := idu.io.contr.mem_read
@@ -68,6 +60,17 @@ class cpu extends Module {
 		2.U -> 0x3.U,
 		3.U -> 0xf.U
 	))
+
+	// cp0
+	cp0.io.in.write  := idu.io.contr.cp0_write
+	cp0.io.in.addr   := idu.io.out.rd
+	cp0.io.in.sel    := ifu.io.out.inst(3, 0)
+	cp0.io.in.data   := reg.io.out.rt_data
+	// intr
+	cp0.io.intr.eret := idu.io.intr.eret
+
+	// tlb
+	tlb.io.in.addr := exu.io.out.dest
 
 	// ifu
 	ifu.io.in.addr := pc
@@ -83,6 +86,7 @@ class cpu extends Module {
 	exu.io.in.srcb   := Mux(idu.io.contr.alu_src, idu.io.out.imm, reg.io.out.rt_data)
 
 	// branch
+	// branch & jump
 	branch.io.in.pc     := pc
 	branch.io.in.branch := idu.io.contr.branch
 	branch.io.in.bcmp   := exu.io.out.cmp
@@ -90,7 +94,8 @@ class cpu extends Module {
 	branch.io.in.jsrc   := idu.io.contr.jsrc
 	branch.io.in.imm    := idu.io.out.imm
 	branch.io.in.reg    := reg.io.out.rs_data
+	// intr
 	branch.io.intr.eret := idu.io.intr.eret
-	branch.io.intr.epc  := reg.io.out.epc
+	branch.io.intr.epc  := cp0.io.out.epc
 	pc                  := branch.io.out.pc
 }

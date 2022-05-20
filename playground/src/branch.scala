@@ -12,7 +12,8 @@ class branch extends Module {
     val reg    = UInt(32.W)
   }
   class branch_out extends Bundle {
-    val pc = UInt(32.W)
+    val pc  = UInt(32.W)
+    val epc = UInt(32.W)
   }
   class branch_intr extends Bundle {
     val eret = Bool()
@@ -55,5 +56,15 @@ class branch extends Module {
     )
   )
 
-  io.out.pc := Mux(io.intr.eret, io.intr.epc, npc)
+  val intr = false.B      // to be io.intr.intr, not implemented
+
+  io.out.pc := Mux(intr,
+    "hbfc00380".U,
+    Mux(io.intr.eret,
+      io.intr.epc,
+      npc
+    )
+  )
+
+  io.out.epc := Mux(b_pipe.io.deq.bits, io.in.pc - 4.U, io.in.pc)
 }

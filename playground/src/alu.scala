@@ -1,25 +1,6 @@
 import chisel3._
 import chisel3.util._
 
-object ALUOperationList {
-  val alu_adds  = 0.U
-  val alu_addu  = 1.U
-  val alu_subs  = 2.U
-  val alu_subu  = 3.U
-  val alu_mults = 4.U
-  val alu_multu = 5.U
-  val alu_divs  = 6.U
-  val alu_divu  = 7.U
-  val alu_and   = 8.U
-  val alu_xor   = 9.U
-  val alu_nor   = 10.U
-  val alu_or    = 11.U
-  val alu_sftrs = 12.U
-  val alu_sftru = 13.U
-  val alu_sftl  = 14.U
-  val alu_nop   = 15.U
-}
-
 import ALUOperationList._
 
 class alu extends Module {
