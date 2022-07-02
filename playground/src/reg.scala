@@ -9,6 +9,7 @@ class reg extends Module {
     val reg_write = Bool()
     val rs_addr   = UInt(5.W)
     val rt_addr   = UInt(5.W)
+    val rs_addr_hl= UInt(5.W)
     val rd_addr   = UInt(5.W)
     val rd_data   = UInt(32.W)
     // hi/lo
@@ -22,6 +23,9 @@ class reg extends Module {
     // cp0
     val cp0_read  = Bool()
     val cp0_data  = UInt(32.W)
+    // pc for difftest
+    val valid     = Bool()
+    val pc        = UInt(32.W)
   }
   class reg_out extends Bundle {
     // regfile
@@ -52,9 +56,17 @@ class reg extends Module {
   reg(0) := 0.U
 
   when (io.in.hi_write) {
-    reg_hi := Mux(io.in.hilo_src, reg(io.in.rs_addr), io.in.hi_data)
+    reg_hi := Mux(io.in.hilo_src, reg(io.in.rs_addr_hl), io.in.hi_data)
   }
   when (io.in.lo_write) {
-    reg_lo := Mux(io.in.hilo_src, reg(io.in.rs_addr), io.in.lo_data)
+    reg_lo := Mux(io.in.hilo_src, reg(io.in.rs_addr_hl), io.in.lo_data)
   }
+
+  val traceregs = Module(new traceregs())
+  val reg_pc = RegInit("h0".U(32.W))
+  when(io.in.valid){
+    reg_pc := io.in.pc
+  }
+  traceregs.io.rf := reg
+  traceregs.io.pc := reg_pc
 }

@@ -27,7 +27,7 @@ class cp0 extends Module {
     val exceed  = Bool()
     val syscall = Bool()
     val breakpt = Bool()
-    val resinst = Bool()
+    val noinst  = Bool()
     val eret    = Bool()
   }
   val io = IO(new Bundle {
@@ -82,7 +82,7 @@ class cp0 extends Module {
   when (io.intr.breakpt) {
     cp0(cause) := Cat(cp0(cause)(31, 7), 0x09.U(5.W), cp0(cause)(1, 0))
   }
-  when (io.intr.resinst) {
+  when (io.intr.noinst) {
     cp0(cause) := Cat(cp0(cause)(31, 7), 0x0a.U(5.W), cp0(cause)(1, 0))
   }
   when (io.intr.eret) {

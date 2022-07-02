@@ -43,7 +43,7 @@ void load_image()
   fseek(fp, 0, SEEK_END);
   img_size = ftell(fp);
   fseek(fp, 0, SEEK_SET);
-  int ret = fread((mem+IMG_START), img_size, 1, fp);
+  int ret = fread((mem + IMG_START), img_size, 1, fp);
   fclose(fp);
 }
 
@@ -62,6 +62,22 @@ void cpu_reset()
   m_trace->dump(sim_time++);
 #endif
   cpu->reset = 0;
+}
+
+void cpu_sim_once()
+{
+  int t = 10;
+  uint64_t last_pc = cpu_gpr[32];
+  while (cpu_gpr[32] == last_pc && t >= 0)
+  {
+    t--;
+    exec_once();
+  }
+  if (t == -1)
+  {
+    puts("pipeline exit");
+    debug_exit(1);
+  }
 }
 
 void exec_once()
@@ -95,7 +111,9 @@ int main(int argc, char **argv, char **env)
 #endif
 
   load_image();
-  cpu_reset();
+  int reset_time = 10;
+  while (reset_time--)
+    cpu_reset();
 #ifdef CONFIG_ITRACE
   init_disasm("mips32-pc-linux-gnu");
 #endif
@@ -104,7 +122,7 @@ int main(int argc, char **argv, char **env)
 #endif
   while (1)
   {
-    exec_once();
+    cpu_sim_once();
 #ifdef CONFIG_DIFFTEST
     difftest_exec_once();
 #endif

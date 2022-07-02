@@ -44,7 +44,7 @@ class idu extends Module {
   class idu_intr extends Bundle {
     val syscall   = Bool()
     val breakpt   = Bool()
-    val resinst   = Bool()
+    val noinst    = Bool()
     val eret      = Bool()
   }
   val io = IO(new Bundle {
@@ -63,8 +63,8 @@ class idu extends Module {
     SLLV    -> rt,
     SRAV    -> rt,
     SRLV    -> rt,
-    SLL      -> rt,
-    SRA      -> rt,
+    SLL     -> rt,
+    SRA     -> rt,
     SRL     -> rt
   ))
 
@@ -96,10 +96,10 @@ class idu extends Module {
     LW      -> rt
   ))
 
-  def sext() = Cat(Fill(16, io.in.inst(15)), io.in.inst(15, 0))      // Sign Extended
+  def sext() = Cat(Fill(16, io.in.inst(15)), io.in.inst(15, 0))     // Sign Extended
   def zext() = Cat(0.U(16.W), io.in.inst(15, 0))                    // Zero Extended
   def lext() = Cat(io.in.inst(15, 0), 0.U(16.W))                    // LUI
-  def fext() = Cat(0.U(27.W), sa)                                    // SLL/SRA/SRL
+  def fext() = Cat(0.U(27.W), sa)                                   // SLL/SRA/SRL
   def jext() = Cat(0.U(6.W), io.in.inst(25,0))                      // JAL
 
   io.out.imm := Lookup(io.in.inst, sext(), Array(
@@ -194,9 +194,9 @@ class idu extends Module {
     SRA     -> true.B,
     SRL     -> true.B,
     LB      -> true.B,
-    LBU      -> true.B,
+    LBU     -> true.B,
     LH      -> true.B,
-    LHU      -> true.B,
+    LHU     -> true.B,
     LW      -> true.B,
     SB      -> true.B,
     SH      -> true.B,
@@ -377,7 +377,7 @@ class idu extends Module {
     BREAK   -> true.B
   ))
 
-  io.intr.resinst := Lookup(io.in.inst, true.B, Array(
+  io.intr.noinst := Lookup(io.in.inst, true.B, Array(
     ADD     -> false.B,
     ADDI    -> false.B,
     ADDU    -> false.B,

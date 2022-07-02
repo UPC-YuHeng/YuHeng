@@ -37,3 +37,4 @@ extern "C" void init_disasm(const char *triple);
 uint8_t* cpu2mem(ll addr);
 void itrace_record(uint32_t pc);
 void itrace_output();
+void exec_once();

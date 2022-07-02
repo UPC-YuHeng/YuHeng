@@ -8,7 +8,8 @@ class exu_mem extends Module {
   }
 
   class idu_data extends Bundle{
-    val rd  = UInt(5.W)
+    val rd = UInt(5.W)
+    val rs = UInt(5.W)
   }
 
   class idu_contr extends Bundle {
@@ -52,26 +53,21 @@ class exu_mem extends Module {
     val exu_data_out    = Output(new exu_data())
   })
 
-  // fetch inst from imem need a cycle.
-  val ifu_data_pipe = Module(new Pipe(new ifu_data()))
-  ifu_data_pipe.io.enq.bits  := io.ifu_data_in
-  ifu_data_pipe.io.enq.valid := io.valid
-
-  val idu_data_pipe = Module(new Pipe(new idu_data()))
-  idu_data_pipe.io.enq.bits  := io.idu_data_in
-  idu_data_pipe.io.enq.valid := io.valid
-
-  val idu_contr_pipe = Module(new Pipe(new idu_contr()))
-  idu_contr_pipe.io.enq.bits  := io.idu_contr_in
-  idu_contr_pipe.io.enq.valid := io.valid
-
-  val exu_data_pipe = Module(new Pipe(new exu_data()))
-  exu_data_pipe.io.enq.bits  := io.exu_data_in
-  exu_data_pipe.io.enq.valid := io.valid
+  val ifu_data_reg  = RegInit(Reg(new ifu_data()))
+  val idu_data_reg  = RegInit(Reg(new idu_data()))
+  val idu_contr_reg = RegInit(Reg(new idu_contr()))
+  val exu_data_reg  = RegInit(Reg(new exu_data()))
+  val valid_reg     = RegInit(false.B);
   
-  io.valid_out     := ifu_data_pipe.io.deq.valid
-  io.ifu_data_out  := ifu_data_pipe.io.deq.bits
-  io.idu_data_out  := idu_data_pipe.io.deq.bits
-  io.idu_contr_out := idu_contr_pipe.io.deq.bits
-  io.exu_data_out  := exu_data_pipe.io.deq.bits
+  valid_reg     := io.valid
+  ifu_data_reg  := io.ifu_data_in
+  idu_data_reg  := io.idu_data_in
+  idu_contr_reg := io.idu_contr_in
+  exu_data_reg  := io.exu_data_in
+
+  io.ifu_data_out  := ifu_data_reg 
+  io.idu_data_out  := idu_data_reg 
+  io.idu_contr_out := idu_contr_reg
+  io.exu_data_out  := exu_data_reg 
+  io.valid_out     := valid_reg    
 }

@@ -4,7 +4,7 @@ import chisel3.util._
 class branch extends Module {
   class branch_in extends Bundle {
     val pc          = UInt(32.W)
-    val pc_exu      = UInt(32.W)
+    val pc_idu      = UInt(32.W)
     val branch_exu  = Bool()
     val branch_mem  = Bool()
     val bcmp        = Bool()
@@ -14,9 +14,10 @@ class branch extends Module {
     val reg         = UInt(32.W)
   }
   class branch_out extends Bundle {
-    val pc     = UInt(32.W)
-    val epc    = UInt(32.W)
-    val branch = Bool()
+    val pc         = UInt(32.W)
+    val epc        = UInt(32.W)
+    val branch_cp0 = Bool()
+    val branch_pc  = Bool()
   }
   class branch_intr extends Bundle {
     val intr = Bool()
@@ -32,10 +33,10 @@ class branch extends Module {
   val npc = Mux(io.in.jump,
     Mux(io.in.jsrc,
       io.in.reg,
-      Cat(io.in.pc_exu(31, 28), io.in.imm(25, 0), 0.U(2.W))
+      Cat(io.in.pc_idu(31, 28), io.in.imm(25, 0), 0.U(2.W))
     ),
     Mux(io.in.branch_exu & io.in.bcmp,
-      io.in.pc_exu + Cat(Fill(14, io.in.imm(15)), io.in.imm(15, 0), 0.U(2.W)),
+      io.in.pc_idu + Cat(Fill(14, io.in.imm(15)), io.in.imm(15, 0), 0.U(2.W)),
       io.in.pc + 4.U
     )
   )
@@ -47,7 +48,8 @@ class branch extends Module {
       npc
     )
   )
-  io.out.epc := Mux(io.in.branch_mem, io.in.pc_exu - 4.U, io.in.pc_exu)
+  io.out.epc := Mux(io.in.branch_mem, io.in.pc_idu - 4.U, io.in.pc_idu)
 
-  io.out.branch := io.in.branch_mem
+  io.out.branch_cp0 := io.in.branch_mem
+  io.out.branch_pc  := (io.in.jump | (io.in.branch_exu & io.in.bcmp))
 }
