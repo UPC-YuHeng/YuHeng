@@ -6,6 +6,17 @@ import yuheng.debug.mem
 class cpu extends Module {
   val io = IO(new Bundle {
     val int = Input(UInt(6.W))
+    val inst_sram_addr  = Output(UInt(32.W))
+    val inst_sram_wen   = Output(UInt(3.W))
+    val inst_sram_en    = Output(Bool())
+    val inst_sram_wdata = Output(UInt(32.W))
+    val inst_sram_rdata = Input(UInt(32.W))
+
+    val data_sram_addr  = Output(UInt(32.W))
+    val data_sram_wen   = Output(UInt(3.W))
+    val data_sram_en    = Output(Bool())
+    val data_sram_wdata = Output(UInt(32.W))
+    val data_sram_rdata = Input(UInt(32.W))
   })
 
   val pc = RegInit("hbfc00000".U(32.W))
@@ -17,7 +28,7 @@ class cpu extends Module {
   val exu     = Module(new exu())
   val exu_mem = Module(new exu_mem())
   val tlb     = Module(new tlb())
-  val mem     = Module(new mem())
+  // val mem     = Module(new mem())
   val mem_reg = Module(new mem_reg())
   val reg     = Module(new reg())
   val branch  = Module(new branch())
@@ -27,22 +38,26 @@ class cpu extends Module {
   val pause         = Wire(Bool())
 
   // ifu
-  ifu.io.in.addr := pc
+  ifu.io.in.addr     := pc
+  io.inst_sram_addr  := ifu.io.inst_sram_addr
+  io.inst_sram_wen   := "h0".U
+  io.inst_sram_en    := true.B
+  io.inst_sram_wdata := "h0".U
 
   // ifu_idu
   ifu_idu.io.pause            := pause
   ifu_idu.io.valid            := !clear_ifu
-  ifu_idu.io.ifu_data_in.inst := ifu.io.out.inst
+  // ifu_idu.io.ifu_data_in.inst := ifu.io.out.inst
   ifu_idu.io.ifu_data_in.pc   := pc
 
   // idu
-  idu.io.in.inst := ifu_idu.io.ifu_data_out.inst
+  idu.io.in.inst := io.inst_sram_rdata
 
   // idu_exu
   idu_exu.io.pause                  := pause
   idu_exu.io.valid                  := ifu_idu.io.valid_out
   idu_exu.io.ifu_data_in.pc         := ifu_idu.io.ifu_data_out.pc
-  idu_exu.io.ifu_data_in.inst       := ifu_idu.io.ifu_data_out.inst
+  idu_exu.io.ifu_data_in.inst       := io.inst_sram_rdata
   idu_exu.io.idu_data_in.rs         := idu.io.out.rs
   idu_exu.io.idu_data_in.rt         := idu.io.out.rt
   idu_exu.io.idu_data_in.rd         := idu.io.out.rd
@@ -106,24 +121,23 @@ class cpu extends Module {
   exu_mem.io.exu_data_in.rt_data    := reg.io.out.rt_data
 
   // tlb
-  tlb.io.in.addr := exu_mem.io.exu_data_out.dest
+  tlb.io.in.addr := exu.io.out.dest
 
   // mem
-  mem.io.ren   := exu_mem.io.idu_contr_out.mem_read
-  mem.io.wen   := exu_mem.io.idu_contr_out.mem_write
-  mem.io.raddr := tlb.io.out.addr
-  mem.io.waddr := tlb.io.out.addr
-  mem.io.wdata := exu_mem.io.exu_data_out.rt_data
-  mem.io.mask  := MuxLookup(exu_mem.io.idu_contr_out.mem_mask, 0.U, Array(
+  io.data_sram_en   := idu_exu.io.idu_contr_out.mem_write | idu_exu.io.idu_contr_out.mem_read
+  io.data_sram_wen  := MuxLookup(idu_exu.io.idu_contr_out.mem_mask, 0.U, Array(
     1.U -> 0x1.U,
     2.U -> 0x3.U,
     3.U -> 0xf.U
   ))
-  val mem_addrrd = (exu_mem.io.idu_contr_out.mem_read & MuxLookup(exu_mem.io.idu_contr_out.mem_mask, false.B, Array(
+  io.data_sram_addr  := tlb.io.out.addr
+  io.data_sram_wdata := reg.io.out.rt_data
+
+  val mem_addrrd = (idu_exu.io.idu_contr_out.mem_read & MuxLookup(idu_exu.io.idu_contr_out.mem_mask, false.B, Array(
     2.U -> tlb.io.out.addr(0),
     3.U -> tlb.io.out.addr(1, 0).orR
   )))
-  val mem_addrwt = (exu_mem.io.idu_contr_out.mem_write & MuxLookup(exu_mem.io.idu_contr_out.mem_mask, false.B, Array(
+  val mem_addrwt = (idu_exu.io.idu_contr_out.mem_write & MuxLookup(idu_exu.io.idu_contr_out.mem_mask, false.B, Array(
     2.U -> tlb.io.out.addr(0),
     3.U -> tlb.io.out.addr(1, 0).orR
   )))
@@ -150,7 +164,7 @@ class cpu extends Module {
   mem_reg.io.exu_data_in.dest       := exu_mem.io.exu_data_out.dest
   mem_reg.io.exu_data_in.dest_hi    := exu_mem.io.exu_data_out.dest_hi
   mem_reg.io.exu_data_in.dest_lo    := exu_mem.io.exu_data_out.dest_lo
-  mem_reg.io.mem_data_in.rdata      := mem.io.rdata
+  mem_reg.io.mem_data_in.rdata      := io.data_sram_rdata
 
   // reg
   reg.io.in.pc        := mem_reg.io.ifu_data_out.pc // pc for difftest

@@ -3,7 +3,7 @@ import chisel3.util._
 
 class ifu_idu extends Module {
   class ifu_data extends Bundle {
-    val inst    = UInt(32.W)
+    // val inst    = UInt(32.W)
     val pc      = UInt(32.W)
   }
   

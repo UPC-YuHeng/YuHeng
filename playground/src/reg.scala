@@ -1,7 +1,7 @@
 import chisel3._
 import chisel3.util._
 
-import yuheng.debug.traceregs
+// import yuheng.debug.traceregs
 
 class reg extends Module {
   class reg_in extends Bundle {
@@ -62,11 +62,11 @@ class reg extends Module {
     reg_lo := Mux(io.in.hilo_src, reg(io.in.rs_addr_hl), io.in.lo_data)
   }
 
-  val traceregs = Module(new traceregs())
-  val reg_pc = RegInit("h0".U(32.W))
-  when(io.in.valid){
-    reg_pc := io.in.pc
-  }
-  traceregs.io.rf := reg
-  traceregs.io.pc := reg_pc
+  // val traceregs = Module(new traceregs())
+  // val reg_pc = RegInit("h0".U(32.W))
+  // when(io.in.valid){
+  //   reg_pc := io.in.pc
+  // }
+  // traceregs.io.rf := reg
+  // traceregs.io.pc := reg_pc
 }
