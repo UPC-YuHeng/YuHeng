@@ -17,6 +17,20 @@ vluint64_t sim_time = 0; // time of gtkwave
 
 // =============== Ftrace ===============
 
+struct cpu_top
+{
+  uint32_t io_inst_sram_wen;
+  uint32_t io_inst_sram_en;
+  uint32_t io_inst_sram_addr;
+  uint32_t io_inst_sram_wdata;
+  uint32_t io_data_sram_wen;
+  uint32_t io_data_sram_en;
+  uint32_t io_data_sram_addr;
+  uint32_t io_data_sram_wdata;
+};
+cpu_top top_buf[2] = {0};
+int buf_count = 0;
+
 void debug_exit(int status)
 {
 #ifdef CONFIG_GTKWAVE
@@ -47,6 +61,24 @@ void load_image()
   fclose(fp);
 }
 
+void rw_data()
+{
+  top_buf[buf_count ^ 1].io_inst_sram_wen = cpu->io_inst_sram_wen;
+  top_buf[buf_count ^ 1].io_inst_sram_en = cpu->io_inst_sram_en;
+  top_buf[buf_count ^ 1].io_inst_sram_addr = cpu->io_inst_sram_addr;
+  top_buf[buf_count ^ 1].io_inst_sram_wdata = cpu->io_inst_sram_wdata;
+  top_buf[buf_count ^ 1].io_data_sram_wen = cpu->io_data_sram_wen;
+  top_buf[buf_count ^ 1].io_data_sram_en = cpu->io_data_sram_en;
+  top_buf[buf_count ^ 1].io_data_sram_addr = cpu->io_data_sram_addr;
+  top_buf[buf_count ^ 1].io_data_sram_wdata = cpu->io_data_sram_wdata;
+
+  pmem_read(top_buf[buf_count].io_inst_sram_addr, (int *)&cpu->io_inst_sram_rdata);
+  pmem_write(top_buf[buf_count].io_inst_sram_addr, top_buf[buf_count].io_inst_sram_wdata, top_buf[buf_count].io_inst_sram_wen);
+
+  pmem_read(top_buf[buf_count].io_data_sram_addr, (int *)&cpu->io_data_sram_rdata);
+  pmem_write(top_buf[buf_count].io_data_sram_addr, top_buf[buf_count].io_data_sram_wdata, top_buf[buf_count].io_data_sram_wen);
+  buf_count ^= 1;
+}
 void cpu_reset()
 {
   cpu->clock = 0;
@@ -58,6 +90,7 @@ void cpu_reset()
   cpu->clock = 1;
   cpu->reset = 1;
   cpu->eval();
+  rw_data();
 #ifdef CONFIG_GTKWAVE
   m_trace->dump(sim_time++);
 #endif
@@ -92,6 +125,7 @@ void exec_once()
 #endif
   cpu->clock = 1;
   cpu->eval();
+  rw_data();
 #ifdef CONFIG_GTKWAVE
   m_trace->dump(sim_time++);
 #endif
