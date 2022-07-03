@@ -127,13 +127,13 @@ class cpu extends Module {
   io.data_sram_en   := ((idu_exu.io.idu_contr_out.mem_write | idu_exu.io.idu_contr_out.mem_read) & (~pause) & idu_exu.io.valid_out)
   io.data_sram_wen  := Mux(idu_exu.io.idu_contr_out.mem_write & (~pause) & idu_exu.io.valid_out,
     MuxLookup(idu_exu.io.idu_contr_out.mem_mask, 0.U, Array(
-      1.U -> MuxLookup(tlb.io.out.addr(1, 0), 0.U, Array(
+      1.U -> MuxLookup(tlb.io.in.addr(1, 0), 0.U, Array(
         "b00".U -> "b0001".U,
         "b01".U -> "b0010".U,
         "b10".U -> "b0100".U,
         "b11".U -> "b1000".U,
       )),
-      2.U -> MuxLookup(tlb.io.out.addr(1, 0), 0.U, Array(
+      2.U -> MuxLookup(tlb.io.in.addr(1, 0), 0.U, Array(
         "b00".U -> "b0011".U,
         "b10".U -> "b1100".U
       )),
@@ -141,7 +141,7 @@ class cpu extends Module {
     )),
     0.U
   )
-  io.data_sram_addr  := Cat(tlb.io.out.addr(31, 2), 0.U(2.W))
+  io.data_sram_addr  := Cat(tlb.io.in.addr(31, 2), 0.U(2.W))
   io.data_sram_wdata := reg.io.out.rt_data
 
   val mem_addrrd = (idu_exu.io.idu_contr_out.mem_read & (~pause) & idu_exu.io.valid_out & MuxLookup(idu_exu.io.idu_contr_out.mem_mask, false.B, Array(
@@ -185,15 +185,16 @@ class cpu extends Module {
   reg.io.in.rd_addr   := MuxLookup(Cat(mem_reg.io.idu_contr_out.mem_read, mem_reg.io.idu_contr_out.call_src), mem_reg.io.idu_data_out.rd , Array(
     1.U -> 31.U
   ))
+  // mem_reg.io.exu_data_in.dest is tlb.io.out.addr
   reg.io.in.rd_data   := Mux(mem_reg.io.idu_contr_out.mem_read,
     MuxLookup(mem_reg.io.idu_contr_out.mem_mask, 0.U, Array(
-      1.U -> MuxLookup(tlb.io.out.addr(1, 0), 0.U, Array(
+      1.U -> MuxLookup(mem_reg.io.exu_data_in.dest(1, 0), 0.U, Array(
           "b00".U -> Cat(Fill(24, mem_reg.io.mem_data_out.rdata( 7) & mem_reg.io.idu_contr_out.signed.asUInt()), mem_reg.io.mem_data_out.rdata( 7,  0)),
           "b01".U -> Cat(Fill(24, mem_reg.io.mem_data_out.rdata(15) & mem_reg.io.idu_contr_out.signed.asUInt()), mem_reg.io.mem_data_out.rdata(15,  8)),
           "b10".U -> Cat(Fill(24, mem_reg.io.mem_data_out.rdata(23) & mem_reg.io.idu_contr_out.signed.asUInt()), mem_reg.io.mem_data_out.rdata(23, 16)),
           "b11".U -> Cat(Fill(24, mem_reg.io.mem_data_out.rdata(31) & mem_reg.io.idu_contr_out.signed.asUInt()), mem_reg.io.mem_data_out.rdata(31, 24))
       )),
-      2.U -> MuxLookup(tlb.io.out.addr(1, 0), 0.U, Array(
+      2.U -> MuxLookup(mem_reg.io.exu_data_in.dest(1, 0), 0.U, Array(
           "b00".U -> Cat(Fill(16, mem_reg.io.mem_data_out.rdata(15) & mem_reg.io.idu_contr_out.signed.asUInt()), mem_reg.io.mem_data_out.rdata(15,  0)),
           "b10".U -> Cat(Fill(16, mem_reg.io.mem_data_out.rdata(31) & mem_reg.io.idu_contr_out.signed.asUInt()), mem_reg.io.mem_data_out.rdata(31, 16))
       )),
