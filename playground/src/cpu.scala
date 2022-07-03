@@ -126,10 +126,10 @@ class cpu extends Module {
   // mem
   io.data_sram_en   := ((idu_exu.io.idu_contr_out.mem_write | idu_exu.io.idu_contr_out.mem_read) & (~pause) & idu_exu.io.valid_out)
   io.data_sram_wen  := Mux(idu_exu.io.idu_contr_out.mem_write & (~pause) & idu_exu.io.valid_out, MuxLookup(idu_exu.io.idu_contr_out.mem_mask, 0.U, Array(
-    1.U -> 0x1.U,
-    2.U -> 0x3.U,
+    1.U -> 0x8.U,
+    2.U -> 0xa.U,
     3.U -> 0xf.U
-  )),0x0.U)
+  )), 0x0.U)
   io.data_sram_addr  := tlb.io.out.addr
   io.data_sram_wdata := reg.io.out.rt_data
 
