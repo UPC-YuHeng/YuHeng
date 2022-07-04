@@ -142,7 +142,11 @@ class cpu extends Module {
     0.U
   )
   io.data_sram_addr  := Cat(tlb.io.out.addr(31, 2), 0.U(2.W))
-  io.data_sram_wdata := reg.io.out.rt_data
+  io.data_sram_wdata := MuxLookup(idu_exu.io.idu_contr_out.mem_mask, 0.U, Array(
+    1.U -> Fill(4, reg.io.out.rt_data( 7, 0)),
+    2.U -> Fill(2, reg.io.out.rt_data(15, 0)),
+    3.U -> reg.io.out.rt_data
+  ))
 
   val mem_addrrd = (idu_exu.io.idu_contr_out.mem_read & (~pause) & idu_exu.io.valid_out & MuxLookup(idu_exu.io.idu_contr_out.mem_mask, false.B, Array(
     2.U -> tlb.io.out.addr(0),
