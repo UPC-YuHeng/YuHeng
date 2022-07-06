@@ -154,12 +154,15 @@ int main(int argc, char **argv, char **env)
 #ifdef CONFIG_DIFFTEST
   init_difftest();
 #endif
-  while (1)
+  int simtime1=500;
+  while (simtime1>=0)
   {
+    simtime1--;
     cpu_sim_once();
 #ifdef CONFIG_DIFFTEST
     difftest_exec_once();
 #endif
   }
+  debug_exit(1);
   return 0;
 }

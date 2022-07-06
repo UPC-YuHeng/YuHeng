@@ -4,6 +4,7 @@ import chisel3.util._
 class branch extends Module {
   class branch_in extends Bundle {
     val pc           = UInt(32.W)
+    val pc_exu       = UInt(32.W)
     val pc_idu       = UInt(32.W)
     val branch_exu   = Bool()
     val branch_delay = Bool()
@@ -48,7 +49,7 @@ class branch extends Module {
       npc
     )
   )
-  io.out.epc := Mux(io.in.branch_delay, io.in.pc_idu - 4.U, io.in.pc_idu)
+  io.out.epc := Mux(io.in.branch_delay, io.in.pc_exu - 4.U, io.in.pc_exu)
 
   io.out.branch_cp0 := io.in.branch_delay
   io.out.branch_pc  := (io.in.jump | (io.in.branch_exu & io.in.bcmp)) | io.intr.intr | io.intr.eret

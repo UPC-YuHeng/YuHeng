@@ -1,8 +1,7 @@
 // ========================= CONFIG =========================
 #define CONFIG_GTKWAVE
 // #define CONFIG_ITRACE
-#define CONFIG_DIFFTEST
-
+// #define CONFIG_DIFFTEST
 #include <cstdio>
 // Verilator with trace
 #include <Vcpu.h>

@@ -9,10 +9,11 @@ class idu extends Module {
     val inst = UInt(32.W)
   }
   class idu_out extends Bundle {
-    val rs  = UInt(5.W)
-    val rt  = UInt(5.W)
-    val rd  = UInt(5.W)
-    val imm = UInt(32.W)
+    val rs       = UInt(5.W)
+    val rt       = UInt(5.W)
+    val rd       = UInt(5.W)
+    val cp0_addr = UInt(5.W)
+    val imm      = UInt(32.W)
   }
   class idu_contr extends Bundle {
     // alu
@@ -93,8 +94,11 @@ class idu extends Module {
     LBU     -> rt,
     LH      -> rt,
     LHU     -> rt,
-    LW      -> rt
+    LW      -> rt,
+    MFC0    -> rt
   ))
+
+  io.out.cp0_addr := rd
 
   def sext() = Cat(Fill(16, io.in.inst(15)), io.in.inst(15, 0))     // Sign Extended
   def zext() = Cat(0.U(16.W), io.in.inst(15, 0))                    // Zero Extended

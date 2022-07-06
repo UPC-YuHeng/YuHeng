@@ -55,13 +55,14 @@ class cpu extends Module {
 
   // idu_exu   
   idu_exu.io.pause                     := pause
-  idu_exu.io.valid                     := (ifu_idu.io.valid_out & ~intr)
+  idu_exu.io.valid                     := (ifu_idu.io.valid_out & ~intr & ~idu.io.intr.eret)
   idu_exu.io.int                       := io.int
   idu_exu.io.ifu_data_in.pc            := ifu_idu.io.ifu_data_out.pc
   idu_exu.io.ifu_data_in.inst          := io.inst_sram_rdata
   idu_exu.io.idu_data_in.rs            := idu.io.out.rs
   idu_exu.io.idu_data_in.rt            := idu.io.out.rt
   idu_exu.io.idu_data_in.rd            := idu.io.out.rd
+  idu_exu.io.idu_data_in.cp0_addr      := idu.io.out.cp0_addr
   idu_exu.io.idu_data_in.imm           := idu.io.out.imm
   idu_exu.io.idu_contr_in.alu_op       := idu.io.contr.alu_op
   idu_exu.io.idu_contr_in.alu_src      := idu.io.contr.alu_src
@@ -84,7 +85,7 @@ class cpu extends Module {
   idu_exu.io.idu_contr_in.cp0_read     := idu.io.contr.cp0_read
   idu_exu.io.idu_contr_in.cp0_write    := idu.io.contr.cp0_write
   idu_exu.io.intr_in.addrrd            := ifu_idu.io.intr_out.addrrd
-  idu_exu.io.intr_in.noinst            := idu.io.intr.noinst `
+  idu_exu.io.intr_in.noinst            := idu.io.intr.noinst
   idu_exu.io.intr_in.breakpt           := idu.io.intr.breakpt
   idu_exu.io.intr_in.syscall           := idu.io.intr.syscall
   idu_exu.io.intr_in.eret              := idu.io.intr.eret
@@ -126,6 +127,7 @@ class cpu extends Module {
   exu_mem.io.exu_data_in.dest_lo    := exu.io.out.dest_lo
   exu_mem.io.exu_data_in.cmp        := exu.io.out.cmp
   exu_mem.io.exu_data_in.rt_data    := reg.io.out.rt_data
+  exu_mem.io.exu_data_in.cp0_data   := cp0.io.out.data
 
   // tlb
   tlb.io.in.addr := exu.io.out.dest
@@ -187,6 +189,7 @@ class cpu extends Module {
   mem_reg.io.exu_data_in.dest_hi    := exu_mem.io.exu_data_out.dest_hi
   mem_reg.io.exu_data_in.dest_lo    := exu_mem.io.exu_data_out.dest_lo
   mem_reg.io.exu_data_in.rt_data    := exu_mem.io.exu_data_out.rt_data
+  mem_reg.io.exu_data_in.cp0_data   := exu_mem.io.exu_data_out.cp0_data
   mem_reg.io.mem_data_in.rdata      := io.data_sram_rdata
 
   // reg
@@ -228,16 +231,16 @@ class cpu extends Module {
   reg.io.in.lo_data   := mem_reg.io.exu_data_out.dest_lo
   // cp0
   reg.io.in.cp0_read  := mem_reg.io.idu_contr_out.cp0_read
-  reg.io.in.cp0_data  := cp0.io.out.data
+  reg.io.in.cp0_data  := mem_reg.io.exu_data_out.cp0_data
 
   // cp0
-  cp0.io.in.write := mem_reg.io.idu_contr_out.cp0_write
-  cp0.io.in.addr  := mem_reg.io.idu_data_out.rd
-  cp0.io.in.sel   := mem_reg.io.ifu_data_out.inst(3, 0)
-  cp0.io.in.data  := mem_reg.io.exu_data_out.rt_data
+  cp0.io.in.write := idu_exu.io.idu_contr_out.cp0_write & exu_mem.io.valid
+  cp0.io.in.addr  := idu_exu.io.idu_data_out.cp0_addr
+  cp0.io.in.sel   := idu_exu.io.ifu_data_out.inst(3, 0)
+  cp0.io.in.data  := reg.io.out.rt_data
   cp0.io.in.int   := Mux(idu_exu.io.valid_out, io.int | idu_exu.io.int_out, 0.U(6.W))
   cp0.io.in.pc    := idu_exu.io.ifu_data_out.pc
-  cp0.io.in.epc   := branch.io.intr.epc
+  cp0.io.in.epc   := branch.io.out.epc
   // intr
   intr := (idu_exu.io.int_out.orR |
     io.int.orR |
@@ -259,7 +262,8 @@ class cpu extends Module {
   // branch
   // branch & jump
   branch.io.in.pc           := pc
-  branch.io.in.pc_idu       := ifu_idu.io.ifu_data_out.pc
+  branch.io.in.pc_exu       := idu_exu.io.ifu_data_out.pc
+  branch.io.in.pc_idu       := ifu_idu.io.ifu_data_out.pc // TODO, May hava error
   branch.io.in.branch_exu   := idu_exu.io.idu_contr_out.branch & exu_mem.io.valid
   branch.io.in.branch_delay := idu_exu.io.idu_contr_out.branch_delay
   branch.io.in.bcmp         := exu.io.out.cmp

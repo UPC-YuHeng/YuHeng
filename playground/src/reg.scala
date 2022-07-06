@@ -1,7 +1,7 @@
 import chisel3._
 import chisel3.util._
 
-// import yuheng.debug.traceregs
+import yuheng.debug.traceregs 
 
 class reg extends Module {
   class reg_in extends Bundle {

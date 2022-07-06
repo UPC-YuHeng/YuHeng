@@ -7,10 +7,11 @@ class idu_exu extends Module {
     val inst = UInt(32.W)
   }
   class idu_data extends Bundle {
-    val rs  = UInt(5.W)
-    val rt  = UInt(5.W)
-    val rd  = UInt(5.W)
-    val imm = UInt(32.W)
+    val rs       = UInt(5.W)
+    val rt       = UInt(5.W)
+    val rd       = UInt(5.W)
+    val cp0_addr = UInt(5.W)
+    val imm      = UInt(32.W)
   }
   class idu_contr extends Bundle {
     // alu
