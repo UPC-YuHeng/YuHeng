@@ -154,7 +154,7 @@ int main(int argc, char **argv, char **env)
 #ifdef CONFIG_DIFFTEST
   init_difftest();
 #endif
-  int simtime1=500;
+  int simtime1=10000;
   while (simtime1>=0)
   {
     simtime1--;

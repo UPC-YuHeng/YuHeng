@@ -47,7 +47,7 @@ class idu_exu extends Module {
     val syscall = Bool()
     val breakpt = Bool()
     val noinst  = Bool()
-    val eret    = Bool()  
+    val eret    = Bool()
   }
 
   val io = IO(new Bundle {
@@ -62,8 +62,6 @@ class idu_exu extends Module {
     val idu_contr_out  = Output(new idu_contr())
     val intr_in        = Input(new intr())
     val intr_out       = Output(new intr())
-    val int            = Input(UInt(6.W))
-    val int_out        = Output(UInt(6.W))
   })
 
   val ifu_data_reg  = RegInit(Reg(new ifu_data()))
@@ -71,19 +69,16 @@ class idu_exu extends Module {
   val idu_contr_reg = RegInit(Reg(new idu_contr()))
   val intr_reg      = RegInit(Reg(new intr))
   val valid_reg     = RegInit(false.B)
-  val int_reg       = RegInit(0.U(6.W))
 
   valid_reg     := Mux(io.pause, valid_reg     , io.valid);
   ifu_data_reg  := Mux(io.pause, ifu_data_reg  , io.ifu_data_in);
   idu_data_reg  := Mux(io.pause, idu_data_reg  , io.idu_data_in);
   idu_contr_reg := Mux(io.pause, idu_contr_reg , io.idu_contr_in);
   intr_reg      := Mux(io.pause, intr_reg, io.intr_in);
-  int_reg     := Mux(io.pause, int_reg | io.int, io.int);
   
   io.valid_out     := valid_reg
   io.ifu_data_out  := ifu_data_reg
   io.idu_data_out  := idu_data_reg
   io.idu_contr_out := idu_contr_reg
   io.intr_out      := intr_reg
-  io.int_out      := int_reg
 }
