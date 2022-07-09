@@ -31,8 +31,11 @@ void init_difftest()
 
   void (*ref_difftest_init)() = (void (*)())(dlsym(handle, "difftest_init"));
   assert(ref_difftest_init);
+  puts("difftest init finish");
 
   uint32_t npc_pc = cpu_gpr[32];
+  puts("difftest init finish");
+
   cpu_gpr[32] = 0xbfc00000;
   last_nemu_pc = cpu_gpr[32];
 

@@ -32,6 +32,8 @@ class mem_reg extends Module {
     val dest      = UInt(32.W)
     val dest_hi   = UInt(32.W)
     val dest_lo   = UInt(32.W)
+    val rt_data   = UInt(32.W)
+    val cp0_data  = UInt(32.W)
   }
 
   class mem_data extends Bundle {

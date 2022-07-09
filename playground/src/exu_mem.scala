@@ -38,6 +38,7 @@ class exu_mem extends Module {
     val dest_lo   = UInt(32.W)
     val cmp       = Bool()
     val rt_data   = UInt(32.W)
+    val cp0_data  = UInt(32.W)
   }
 
   val io = IO(new Bundle {
