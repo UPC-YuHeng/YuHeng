@@ -2,34 +2,25 @@ import chisel3._
 import chisel3.util._
 
 class ifu_idu extends Module {
-  class ifu_data extends Bundle {
-    // val inst    = UInt(32.W)
-    val pc      = UInt(32.W)
+  class data extends Bundle {
   }
-  
   class intr extends Bundle {
-    val addrrd  = Bool()
+    val inst_addrrd = Bool()
+  }
+  class delay extends Bundle {
+    val valid = Bool()
+    val pc    = UInt(32.W)
+    val intr  = new intr()
   }
   val io = IO(new Bundle {
-    val valid        = Input(Bool())
-    val pause        = Input(Bool())
-    val valid_out    = Output(Bool())
-    val ifu_data_in  = Input(new ifu_data())
-    val ifu_data_out = Output(new ifu_data())
-    val intr_in      = Input(new intr())
-    val intr_out     = Output(new intr())
+    val pause = Input (Bool())
+    val intr  = Input (Bool())
+    val in    = Input (new delay())
+    val out   = Output(new delay())
   })
 
-  // fetch inst from imem need a cycle.
-  val ifu_idu_reg = RegInit(Reg(new ifu_data()))
-  val intr_reg    = RegInit(Reg(new intr))
-  val valid_reg   = RegInit(false.B)
-  
-  valid_reg   := Mux(io.pause, valid_reg, io.valid);
-  ifu_idu_reg := Mux(io.pause, ifu_idu_reg, io.ifu_data_in);
-  intr_reg    := Mux(io.pause, intr_reg, io.intr_in);
+  val ready = ~io.pause | io.intr
 
-  io.valid_out    := valid_reg
-  io.ifu_data_out := ifu_idu_reg
-  io.intr_out     := intr_reg
+  // io.out := RegEnable(Mux(io.in.valid | io.intr, io.in, Reg(new delay())), Reg(new delay()), ready)
+  io.out := RegEnable(io.in, Reg(new delay()), ~io.pause)
 }

@@ -49,7 +49,7 @@ class idu extends Module {
     val eret      = Bool()
   }
   val io = IO(new Bundle {
-    val in    = Input(new idu_in())
+    val in    = Input (new idu_in())
     val out   = Output(new idu_out())
     val contr = Output(new idu_contr())
     val intr  = Output(new idu_intr())

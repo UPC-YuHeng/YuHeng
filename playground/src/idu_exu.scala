@@ -2,18 +2,15 @@ import chisel3._
 import chisel3.util._
 
 class idu_exu extends Module {
-  class ifu_data extends Bundle{
-    val pc   = UInt(32.W)
-    val inst = UInt(32.W)
-  }
-  class idu_data extends Bundle {
+  class data extends Bundle{
+    val inst     = UInt(32.W)
     val rs       = UInt(5.W)
     val rt       = UInt(5.W)
     val rd       = UInt(5.W)
     val cp0_addr = UInt(5.W)
     val imm      = UInt(32.W)
   }
-  class idu_contr extends Bundle {
+  class contr extends Bundle {
     // alu
     val alu_op       = UInt(4.W)
     val alu_src      = Bool()
@@ -41,44 +38,29 @@ class idu_exu extends Module {
     val cp0_read     = Bool()
     val cp0_write    = Bool()
   }
-
   class intr extends Bundle {
-    val addrrd  = Bool()
-    val syscall = Bool()
-    val breakpt = Bool()
-    val noinst  = Bool()
-    val eret    = Bool()
+    val inst_addrrd = Bool()
+    val syscall     = Bool()
+    val breakpt     = Bool()
+    val noinst      = Bool()
+    val eret        = Bool()
   }
-
+  class delay extends Bundle {
+    val valid = Bool()
+    val pc    = UInt(32.W)
+    val data  = new data()
+    val contr = new contr()
+    val intr  = new intr()
+  }
   val io = IO(new Bundle {
-    val valid          = Input(Bool())
-    val pause          = Input(Bool())
-    val valid_out      = Output(Bool())
-    val ifu_data_in    = Input(new ifu_data())
-    val ifu_data_out   = Output(new ifu_data())
-    val idu_data_in    = Input(new idu_data())
-    val idu_data_out   = Output(new idu_data())
-    val idu_contr_in   = Input(new idu_contr())
-    val idu_contr_out  = Output(new idu_contr())
-    val intr_in        = Input(new intr())
-    val intr_out       = Output(new intr())
+    val pause = Input (Bool())
+    val intr  = Input (Bool())
+    val in    = Input (new delay())
+    val out   = Output(new delay())
   })
 
-  val ifu_data_reg  = RegInit(Reg(new ifu_data()))
-  val idu_data_reg  = RegInit(Reg(new idu_data()))
-  val idu_contr_reg = RegInit(Reg(new idu_contr()))
-  val intr_reg      = RegInit(Reg(new intr))
-  val valid_reg     = RegInit(false.B)
+  val ready = ~io.pause | io.intr
 
-  valid_reg     := Mux(io.pause, valid_reg     , io.valid);
-  ifu_data_reg  := Mux(io.pause, ifu_data_reg  , io.ifu_data_in);
-  idu_data_reg  := Mux(io.pause, idu_data_reg  , io.idu_data_in);
-  idu_contr_reg := Mux(io.pause, idu_contr_reg , io.idu_contr_in);
-  intr_reg      := Mux(io.pause, intr_reg, io.intr_in);
-  
-  io.valid_out     := valid_reg
-  io.ifu_data_out  := ifu_data_reg
-  io.idu_data_out  := idu_data_reg
-  io.idu_contr_out := idu_contr_reg
-  io.intr_out      := intr_reg
+  // io.out := RegEnable(Mux(io.in.valid | io.intr, io.in, Reg(new delay())), Reg(new delay()), ready)
+  io.out := RegEnable(io.in, Reg(new delay()), ~io.pause)
 }

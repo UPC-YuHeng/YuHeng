@@ -19,7 +19,7 @@ class exu extends Module {
     val exceed = Bool()
   }
   val io = IO(new Bundle {
-    val in   = Input(new exu_in())
+    val in   = Input (new exu_in())
     val out  = Output(new exu_out())
     val intr = Output(new exu_intr())
   })
