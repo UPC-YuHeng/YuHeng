@@ -1,65 +1,57 @@
 import chisel3._
 import chisel3.util._
 
-import yuheng.debug.traceregs 
-
 class reg extends Module {
-  class reg_in extends Bundle {
-    // regfile
-    val reg_write = Bool()
-    val rs_addr   = UInt(5.W)
-    val rt_addr   = UInt(5.W)
-    val rs_addr_hl= UInt(5.W)
-    val rd_addr   = UInt(5.W)
-    val rd_data   = UInt(32.W)
-    // hi/lo
-    val hi_write  = Bool()
-    val lo_write  = Bool()
-    val hi_read   = Bool()
-    val lo_read   = Bool()
-    val hilo_src  = Bool()
-    val hi_data   = UInt(32.W)
-    val lo_data   = UInt(32.W)
-    // cp0
-    val cp0_read  = Bool()
-    val cp0_data  = UInt(32.W)
-  }
-  class reg_out extends Bundle {
-    // regfile
-    val rs_data = UInt(32.W)
-    val rt_data = UInt(32.W)
-    val rd_data = UInt(32.W)
-  }
   val io = IO(new Bundle {
-    val in  = Input(new reg_in())
-    val out = Output(new reg_out())
+    // read ports
+    val iduin    = Input (new idu_reginfo())
+    val iduout   = Output(new idu_regdata())
+    val intrin   = Input (new intr_reginfo())
+    val introut  = Output(new intr_regdata())
+    // write port
+    val memin    = Flipped(Decoupled(new reg_info()))
+    // contr port
+    val contr    = Input (new reg_contr())
+    val intr     = Input (new reg_intr())
+    val debug_wb = Output(new debug_io())
   })
 
-  val reg = RegInit(VecInit(Seq.fill(32)(0.U(32.W))))
+  val pc = io.memin.bits.pc
+
+  io.memin.ready := true.B
+
+  val reg    = RegInit(VecInit(Seq.fill(32)(0.U(32.W))))
   val reg_hi = RegInit(0.U(32.W))
   val reg_lo = RegInit(0.U(32.W))
 
-  io.out.rs_data := reg(io.in.rs_addr)
-  io.out.rt_data := reg(io.in.rt_addr)
+  // idu-read
+  io.iduout.rs := reg(io.iduin.rs)
+  io.iduout.rt := reg(io.iduin.rt)
+  // intr-read
+  io.introut.data := reg(io.intrin.rt)
 
-  io.out.rd_data := Mux(io.in.hi_read,
-    reg_hi, Mux(io.in.lo_read,
-      reg_lo, Mux(io.in.cp0_read,
-        io.in.cp0_data,
-        io.in.rd_data
-      )
-    )
-  )
-
-  when (io.in.reg_write) {
-    reg(io.in.rd_addr) := io.out.rd_data 
+  // write
+  // normal regs
+  when (io.contr.reg_write) {
+    reg(io.memin.bits.addr) := MuxCase(io.memin.bits.data, Array(
+      io.contr.hi_read  -> reg_hi,
+      io.contr.lo_read  -> reg_lo,
+      io.contr.link     -> (pc + 8.U),
+      io.intr.cp0_read  -> io.intr.cp0_data
+    ))
   }
   reg(0) := 0.U
+  // hilo regs
+  when (io.contr.hi_write) {
+    reg_hi := io.memin.bits.hi
+  }
+  when (io.contr.lo_write) {
+    reg_lo := io.memin.bits.lo
+  }
 
-  when (io.in.hi_write) {
-    reg_hi := Mux(io.in.hilo_src, reg(io.in.rs_addr_hl), io.in.hi_data)
-  }
-  when (io.in.lo_write) {
-    reg_lo := Mux(io.in.hilo_src, reg(io.in.rs_addr_hl), io.in.lo_data)
-  }
+  // debug io
+  io.debug_wb.pc       := pc
+  io.debug_wb.rf_wen   := Fill(4, io.contr.reg_write)
+  io.debug_wb.rf_wnum  := io.memin.bits.addr
+  io.debug_wb.rf_wdata := io.memin.bits.data
 }
