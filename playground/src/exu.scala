@@ -4,8 +4,10 @@ import chisel3.util._
 class exu extends Module {
   class buf_data extends Bundle {
     val valid = Bool()
+    val clear = Bool()
     val out   = new mem_info()
     val intr  = new exu_intr()
+    val cmp   = Bool()
   }
   val io = IO(new Bundle {
     val in    = Flipped(Decoupled(new exu_info()))
@@ -14,6 +16,7 @@ class exu extends Module {
     val intr  = Output(new exu_intr())
     val cmp   = Output(Bool())
     val clear = Input (Bool())
+    val ok    = Output(Bool())
   })
 
   val ret_out  = Wire(new mem_info())
@@ -21,23 +24,34 @@ class exu extends Module {
   val ret_cmp  = Wire(Bool())
 
   val buf   = RegInit(Reg(new buf_data()))
-  val valid = buf.valid & (~io.clear)
+  val valid = buf.valid & io.out.ready
+  io.ok    := valid
 
-  buf.valid := true.B
-  buf.out   := MuxCase(ret_out, Array(
-    io.clear  -> Reg(new mem_info()),
-    buf.valid -> buf.out
+  val clear  = buf.clear | io.clear
+  buf.clear  := ~valid & clear
+
+  buf.valid := ~valid & (buf.valid | io.in.valid)
+  buf.out   := MuxCase(Reg(new mem_info()), Array(
+    clear      -> Reg(new mem_info()),
+    buf.valid  -> buf.out,
+    io.in.valid -> ret_out
   ))
-  buf.intr  := MuxCase(ret_intr, Array(
-    io.clear  -> Reg(new exu_intr()),
-    buf.valid -> buf.intr
+  buf.intr  := MuxCase(Reg(new exu_intr()), Array(
+    clear       -> Reg(new exu_intr()),
+    buf.valid   -> buf.intr,
+    io.in.valid -> ret_intr
+  ))
+  buf.cmp  := MuxCase(false.B, Array(
+    clear       -> false.B,
+    buf.valid   -> buf.cmp,
+    io.in.valid -> ret_cmp
   ))
 
-  io.out.valid := buf.valid
-  io.in.ready  := io.out.ready & valid
-  io.out.bits  := Mux(valid, buf.out, RegInit(Reg(new mem_info())))
-  io.intr      := Mux(valid, buf.intr, RegInit(Reg(new exu_intr())))
-  io.cmp       := Mux(valid, ret_cmp, false.B)
+  io.out.valid := valid & ~clear
+  io.in.ready  := io.out.ready
+  io.out.bits  := Mux(io.out.valid, buf.out, RegInit(Reg(new mem_info())))
+  io.intr      := Mux(io.out.valid, buf.intr, RegInit(Reg(new exu_intr())))
+  io.cmp       := Mux(io.out.valid, buf.cmp, false.B)
 
   val pc   = io.in.bits.pc
 
@@ -64,7 +78,8 @@ class exu extends Module {
   ))
 
   ret_out.pc   := io.in.bits.pc
-  ret_out.data := Mux(io.contr.cmp === 0.U, alu.io.out.dest, ret_cmp.asUInt())
+  ret_out.dest := Mux(io.contr.cmp === 0.U, alu.io.out.dest, ret_cmp.asUInt())
+  ret_out.data := io.in.bits.data
   ret_out.rd   := io.in.bits.rd
   ret_out.hi   := Mux(io.contr.hilo_src, io.in.bits.srca, alu.io.out.dest_hi)
   ret_out.lo   := Mux(io.contr.hilo_src, io.in.bits.srca, alu.io.out.dest_lo)

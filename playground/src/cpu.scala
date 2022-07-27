@@ -21,10 +21,10 @@ class cpu extends Module {
   val reg   = Module(new reg())
 
   // shaking hands
-  val ifu_idu = ifu.io.out.valid & idu.io.in.ready
-  val idu_exu = idu.io.out.valid & exu.io.in.ready
-  val exu_mem = exu.io.out.valid & mem.io.in.ready
-  val mem_reg = mem.io.out.valid & reg.io.memin.ready
+  val ifu_idu = ifu.io.ok & idu.io.in.ready
+  val idu_exu = idu.io.ok & exu.io.in.ready
+  val exu_mem = exu.io.ok & mem.io.in.ready
+  val mem_reg = mem.io.ok & reg.io.memin.ready
 
   // mmu
   mmu.io.in        <> io.axi_in

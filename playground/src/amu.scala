@@ -20,6 +20,6 @@ class amu extends Module {
   ))
   pre := Mux(io.out.ready, pc, pre)
 
-  io.out.valid := true.B
+  io.out.valid := io.out.ready
   io.out.bits.addr := Mux(io.out.ready, pc, pre)
 }

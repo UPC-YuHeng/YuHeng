@@ -103,14 +103,14 @@ class axi extends Module {
       reg_out.wstrb  := io.data_in.wen
       when(io.in.wready)
       {
-        reg_out.wlast  := false.B
-        reg_out.wvalid := false.B
         wstate         := wrend
       }
     }
     is(wrend)
     {
-      reg_out.bready     := true.B
+      reg_out.wvalid := false.B
+      reg_out.wlast  := false.B
+      reg_out.bready := true.B
       when(io.in.bvalid === true.B)
       {
         io.data_out.wready := true.B

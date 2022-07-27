@@ -79,15 +79,20 @@ class mmu extends Module{
     val in         = Input (new master_in())
     val out        = Output(new master_out())
   })
+  val tlb_r    = Module(new tlb())
+  val tlb_w    = Module(new tlb())
   val axi      = Module(new axi())
   val axi_sram = Mux(io.data_sram.en & io.data_sram.wen === 0.U, io.data_sram, io.inst_sram)
 
+  tlb_r.io.in.addr  := axi_sram.addr
+  tlb_w.io.in.addr  := io.data_sram.addr
+
   axi.io.data_in.arid    := Mux(io.data_sram.en & io.data_sram.wen === 0.U, "b0010".U(4.W), "b0001".U(4.W))
-  axi.io.data_in.araddr  := axi_sram.addr
+  axi.io.data_in.araddr  := tlb_r.io.out.addr
   axi.io.data_in.arvalid := axi_sram.en
 
   axi.io.data_in.awid    := "b0010".U(4.W)
-  axi.io.data_in.awaddr  := io.data_sram.addr
+  axi.io.data_in.awaddr  := tlb_w.io.out.addr
   axi.io.data_in.awvalid := io.data_sram.en & io.data_sram.wen =/= 0.U
   axi.io.data_in.wid     := "b0010".U(4.W)
   axi.io.data_in.wlast   := true.B
@@ -96,7 +101,7 @@ class mmu extends Module{
   axi.io.data_in.wdata   := io.data_sram.wdata
   
   io.ifu_ready := (axi.io.data_out.rid === "b0001".U & axi.io.data_out.rready)
-  io.mem_ready := (axi.io.data_out.rid === "b0010".U & axi.io.data_out.rready & axi.io.out.wstrb === 0.U) | (axi.io.data_out.wready & axi.io.out.wstrb =/= 0.U)
+  io.mem_ready := (axi.io.data_out.rid === "b0010".U & axi.io.data_out.rready & io.data_sram.wen === 0.U) | (axi.io.data_out.wready & io.data_sram.wen =/= 0.U)
   io.inst_rdata := Mux(axi.io.data_out.rid === "b0001".U & axi.io.data_out.rready, axi.io.data_out.rdata, 0.U(32.W))
   io.data_rdata := Mux(axi.io.data_out.rid === "b0010".U & axi.io.data_out.rready, axi.io.data_out.rdata, 0.U(32.W))
 

@@ -187,6 +187,7 @@ class exu_info extends Bundle {
   val srcb = UInt(32.W)
   // reg
   val rd   = UInt(5.W)
+  val data = UInt(32.W)
 }
 class exu_contr extends Bundle {
   // alu
@@ -209,6 +210,7 @@ class mem_info extends Bundle {
   // pc (used for laddr and intr)
   val pc   = UInt(32.W)
   // dest
+  val dest = UInt(32.W)
   val data = UInt(32.W)
   // reg
   val rd   = UInt(5.W)

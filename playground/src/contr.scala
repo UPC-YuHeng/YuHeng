@@ -40,27 +40,44 @@ class contr extends Module {
   val conflict     = conflict_exu | conflict_mem | conflict_reg
   io.lock         := conflict
 
-  exu := MuxCase(Reg(new inst_contr()), Array(
+  // exu := MuxCase(Reg(new inst_contr()), Array(
+  //   io.intr          -> Reg(new inst_contr()),
+  //   io.valid.idu_exu -> idu
+  // ))
+  // mem := MuxCase(Reg(new inst_contr()), Array(
+  //   io.intr          -> Reg(new inst_contr()),
+  //   io.valid.exu_mem -> exu
+  // ))
+  // reg := MuxCase(Reg(new inst_contr()), Array(
+  //   io.intr          -> Reg(new inst_contr()),
+  //   io.valid.mem_reg -> mem
+  // ))
+  
+  exu := MuxCase(exu, Array(
     io.intr          -> Reg(new inst_contr()),
-    io.valid.idu_exu -> idu
+    io.valid.idu_exu -> idu,
+    io.valid.exu_mem -> Reg(new inst_contr())
   ))
-  mem := MuxCase(Reg(new inst_contr()), Array(
+  mem := MuxCase(mem, Array(
     io.intr          -> Reg(new inst_contr()),
-    io.valid.exu_mem -> exu
+    io.valid.exu_mem -> exu,
+    io.valid.mem_reg -> Reg(new inst_contr())
   ))
   reg := MuxCase(Reg(new inst_contr()), Array(
     io.intr          -> Reg(new inst_contr()),
     io.valid.mem_reg -> mem
   ))
-  
+
   // cexu := Mux(io.valid.exu_mem, cidu, cexu)
-  cexu := MuxCase(Reg(new conflict_data()), Array(
+  cexu := MuxCase(cexu, Array(
     io.intr          -> Reg(new conflict_data()),
     io.valid.idu_exu -> cidu,
+    io.valid.mem_reg -> Reg(new conflict_data())
   ))
-  cmem := MuxCase(Reg(new conflict_data()), Array(
+  cmem := MuxCase(cmem, Array(
     io.intr          -> Reg(new conflict_data()),
-    io.valid.exu_mem -> cexu
+    io.valid.exu_mem -> cexu,
+    io.valid.mem_reg -> Reg(new conflict_data())
   ))
   creg := MuxCase(Reg(new conflict_data()), Array(
     io.intr          -> Reg(new conflict_data()),
@@ -86,12 +103,12 @@ class contr extends Module {
   io.mem.signed    := Mux(io.valid.exu_mem, exu.signed, mem.signed)
 
   // reg
-  io.reg.reg_write := Mux(io.valid.mem_reg, mem.reg_write, reg.reg_write)
-  io.reg.hi_read   := Mux(io.valid.mem_reg, mem.hi_read, reg.hi_read)
-  io.reg.lo_read   := Mux(io.valid.mem_reg, mem.lo_read, reg.lo_read)
-  io.reg.hi_write  := Mux(io.valid.mem_reg, mem.hi_write, reg.hi_write)
-  io.reg.lo_write  := Mux(io.valid.mem_reg, mem.lo_write, reg.lo_write)
-  io.reg.link      := Mux(io.valid.mem_reg, mem.link, reg.link)
+  io.reg.reg_write := Mux(io.valid.mem_reg, mem.reg_write, false.B)
+  io.reg.hi_read   := Mux(io.valid.mem_reg, mem.hi_read, false.B)
+  io.reg.lo_read   := Mux(io.valid.mem_reg, mem.lo_read, false.B)
+  io.reg.hi_write  := Mux(io.valid.mem_reg, mem.hi_write, false.B)
+  io.reg.lo_write  := Mux(io.valid.mem_reg, mem.lo_write, false.B)
+  io.reg.link      := Mux(io.valid.mem_reg, mem.link, false.B)
 
   // branch_slot
   io.branch := io.idu.jump | io.idu.branch

@@ -7,6 +7,7 @@ import ALUOperationList._
 class idu extends Module {
   class buf_data extends Bundle {
     val valid    = Bool()
+    val clear    = Bool()
     val out      = new exu_info()
     val contr    = new inst_contr()
     val conflict = new conflict_data()
@@ -22,6 +23,7 @@ class idu extends Module {
     val conflict = Output(new conflict_data())
     val clear    = Input (Bool())
     val lock     = Input (Bool())
+    val ok       = Output(Bool())
   })
 
   val ret_out      = Wire(new exu_info())
@@ -30,36 +32,44 @@ class idu extends Module {
   val ret_intr     = Wire(new idu_intr())
 
   val buf   = RegInit(Reg(new buf_data()))
-  val valid = buf.valid & (~io.lock) & (~io.clear)
+  val valid = buf.valid & io.out.ready
+  io.ok    := valid
 
-  buf.valid := ~(buf.valid & io.out.ready) & (buf.valid | io.in.valid)
-  buf.out   := MuxCase(ret_out, Array(
-    io.clear  -> Reg(new exu_info()),
-    io.lock   -> buf.out,
-    buf.valid -> buf.out
+  val clear  = buf.clear | io.clear
+  buf.clear  := ~valid & clear
+
+  buf.valid := ~valid & (buf.valid | io.in.valid)
+  buf.out   := MuxCase(Reg(new exu_info()), Array(
+    clear       -> Reg(new exu_info()),
+    io.lock     -> buf.out,
+    buf.valid   -> buf.out,
+    io.in.valid -> ret_out
   ))
-  buf.contr := MuxCase(ret_contr, Array(
-    io.clear  -> Reg(new inst_contr()),
-    io.lock   -> buf.contr,
-    buf.valid -> buf.contr
+  buf.contr := MuxCase(Reg(new inst_contr()), Array(
+    clear       -> Reg(new inst_contr()),
+    io.lock     -> buf.contr,
+    buf.valid   -> buf.contr,
+    io.in.valid -> ret_contr
   ))
-  buf.conflict := MuxCase(ret_conflict, Array(
-    io.clear  -> Reg(new conflict_data()),
-    io.lock   -> buf.conflict,
-    buf.valid -> buf.conflict
+  buf.conflict := MuxCase(Reg(new conflict_data()), Array(
+    clear       -> Reg(new conflict_data()),
+    io.lock     -> buf.conflict,
+    buf.valid   -> buf.conflict,
+    io.in.valid -> ret_conflict
   ))
-  buf.intr  := MuxCase(ret_intr, Array(
-    io.clear  -> Reg(new idu_intr()),
-    io.lock   -> buf.intr,
-    buf.valid -> buf.intr
+  buf.intr  := MuxCase(Reg(new idu_intr()), Array(
+    clear       -> Reg(new idu_intr()),
+    io.lock     -> buf.intr,
+    buf.valid   -> buf.intr,
+    io.in.valid -> ret_intr
   ))
 
-  io.out.valid := valid
-  io.in.ready  := io.out.ready & valid
-  io.out.bits  := Mux(valid, buf.out, RegInit(Reg(new exu_info())))
-  io.contr     := Mux(valid, buf.contr, RegInit(Reg(new inst_contr())))
+  io.out.valid := valid & ~clear & ~io.lock
+  io.in.ready  := ~io.lock & io.out.ready
+  io.out.bits  := Mux(io.out.valid, buf.out, RegInit(Reg(new exu_info())))
+  io.contr     := Mux(io.out.valid, buf.contr, RegInit(Reg(new inst_contr())))
+  io.intr      := Mux(io.out.valid, buf.intr, RegInit(Reg(new idu_intr())))
   io.conflict  := buf.conflict
-  io.intr      := Mux(valid, buf.intr, RegInit(Reg(new idu_intr())))
 
   val pc   = io.in.bits.pc
   val npc  = io.in.bits.pc + 4.U
@@ -150,6 +160,7 @@ class idu extends Module {
     LW      -> rt,
     MFC0    -> rt
   ))
+  ret_out.data := io.rddata.rt
 
   ret_contr.alu_op := Lookup(inst, alu_nop, Array(
     ADD     -> alu_adds,
@@ -309,7 +320,7 @@ class idu extends Module {
     BGEZAL  -> 4.U,
     BLTZAL  -> 7.U
   ))
-  ret_contr.baddr := pc + Cat(Fill(14, imm(15)), imm(15, 0), 0.U(2.W))
+  ret_contr.baddr := npc + Cat(Fill(14, imm(15)), imm(15, 0), 0.U(2.W))
   ret_contr.jump := Lookup(inst, false.B, Array(
     J       -> true.B,
     JAL     -> true.B,

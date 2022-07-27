@@ -30,15 +30,17 @@ class reg extends Module {
   // intr-read
   io.introut.data := reg(io.intrin.rt)
 
+  val wdata = MuxCase(io.memin.bits.data, Array(
+    io.contr.hi_read  -> reg_hi,
+    io.contr.lo_read  -> reg_lo,
+    io.contr.link     -> (pc + 8.U),
+    io.intr.cp0_read  -> io.intr.cp0_data
+  ))
+
   // write
   // normal regs
   when (io.contr.reg_write) {
-    reg(io.memin.bits.addr) := MuxCase(io.memin.bits.data, Array(
-      io.contr.hi_read  -> reg_hi,
-      io.contr.lo_read  -> reg_lo,
-      io.contr.link     -> (pc + 8.U),
-      io.intr.cp0_read  -> io.intr.cp0_data
-    ))
+    reg(io.memin.bits.addr) := wdata
   }
   reg(0) := 0.U
   // hilo regs
@@ -53,5 +55,5 @@ class reg extends Module {
   io.debug_wb.pc       := pc
   io.debug_wb.rf_wen   := Fill(4, io.contr.reg_write)
   io.debug_wb.rf_wnum  := io.memin.bits.addr
-  io.debug_wb.rf_wdata := io.memin.bits.data
+  io.debug_wb.rf_wdata := wdata
 }
