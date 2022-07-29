@@ -3,23 +3,25 @@ import chisel3.util._
 
 class amu extends Module {
   val io = IO(new Bundle {
-    val contr = Input(new amu_contr())
-    val intr  = Input(new amu_intr())
-    val out   = Decoupled(new inst_info())
+    val in  = Input(new amu_in())
+    val out = Decoupled(new amu_out())
   })
 
-  val pc  = RegInit("hbfc00000".U(32.W))
-  val pre = RegInit("hbfc00000".U(32.W))
+  val in  = io.in
+  val out = io.out
+
+  val pc     = RegInit("hbfc00000".U(32.W))
+  val pre_pc = RegInit("hbfc00000".U(32.W))
 
   pc := MuxCase(pc, Array(
-    io.intr.intr    -> "hbfc00380".U,
-    io.intr.eret    -> io.intr.eaddr,
-    io.contr.branch -> io.contr.baddr,
-    io.contr.jump   -> io.contr.jaddr,
-    io.out.ready    -> (pc + 4.U)
+    in.intr.intr    -> "hbfc00380".U,
+    in.intr.eret    -> in.intr.eaddr,
+    in.contr.branch -> in.contr.baddr,
+    in.contr.jump   -> in.contr.jaddr,
+    out.ready       -> (pc + 4.U)
   ))
-  pre := Mux(io.out.ready, pc, pre)
+  pre_pc := Mux(out.ready, pc, pre_pc)
 
-  io.out.valid := io.out.ready
-  io.out.bits.addr := Mux(io.out.ready, pc, pre)
+  out.valid := true.B
+  out.bits.data.addr := Mux(out.ready, pc, pre_pc)
 }

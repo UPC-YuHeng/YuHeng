@@ -6,74 +6,82 @@ import ALUOperationList._
 
 class idu extends Module {
   class buf_data extends Bundle {
-    val valid    = Bool()
-    val clear    = Bool()
-    val out      = new exu_info()
-    val contr    = new inst_contr()
-    val conflict = new conflict_data()
-    val intr     = new idu_intr()
+    val ready = Bool()
+    val valid = Bool()
+    val bits  = new idu_out()
   }
   val io = IO(new Bundle {
-    val in       = Flipped(Decoupled(new inst_data()))
-    val rdinfo   = Output(new idu_reginfo())
-    val rddata   = Input (new idu_regdata())
-    val out      = Decoupled(new exu_info())
-    val contr    = Output(new inst_contr())
-    val intr     = Output(new idu_intr())
-    val conflict = Output(new conflict_data())
-    val clear    = Input (Bool())
-    val lock     = Input (Bool())
-    val ok       = Output(Bool())
+    val in     = Flipped(Decoupled(new idu_in()))
+    val out    = Decoupled(new idu_out())
+    val regin  = Output(new regread_in())
+    val regout = Input (new regread_out())
+    val conf   = Output(new conflict_data())
+    val lock   = Input (Bool())
+    val flush  = Input (Bool())
   })
 
-  val ret_out      = Wire(new exu_info())
-  val ret_contr    = Wire(new inst_contr())
-  val ret_conflict = Wire(new conflict_data())
-  val ret_intr     = Wire(new idu_intr())
+  val clear = io.flush
 
-  val buf   = RegInit(Reg(new buf_data()))
-  val valid = buf.valid & io.out.ready
-  io.ok    := valid
+  val in  = io.in
+  val out = io.out
+  val buf = RegInit(Reg(new buf_data()))
 
-  val clear  = buf.clear | io.clear
-  buf.clear  := ~valid & clear
+  val inst     = in.bits.data.inst
+  val decoded  = Wire(Bool())         // for "reserved", implemented in the end.
+  val syscall  = Mux((in.valid & in.ready), inst === SYSCALL, buf.bits.intr.syscall)
+  val breakpt  = Mux((in.valid & in.ready), inst === BREAK,   buf.bits.intr.breakpt)
+  val reserved = Mux((in.valid & in.ready), decoded,          buf.bits.intr.reserved)
+  val eret     = Mux((in.valid & in.ready), inst === ERET,    buf.bits.intr.eret)
 
-  buf.valid := ~valid & (buf.valid | io.in.valid)
-  buf.out   := MuxCase(Reg(new exu_info()), Array(
-    clear       -> Reg(new exu_info()),
-    io.lock     -> buf.out,
-    buf.valid   -> buf.out,
-    io.in.valid -> ret_out
-  ))
-  buf.contr := MuxCase(Reg(new inst_contr()), Array(
-    clear       -> Reg(new inst_contr()),
-    io.lock     -> buf.contr,
-    buf.valid   -> buf.contr,
-    io.in.valid -> ret_contr
-  ))
-  buf.conflict := MuxCase(Reg(new conflict_data()), Array(
-    clear       -> Reg(new conflict_data()),
-    io.lock     -> buf.conflict,
-    buf.valid   -> buf.conflict,
-    io.in.valid -> ret_conflict
-  ))
-  buf.intr  := MuxCase(Reg(new idu_intr()), Array(
-    clear       -> Reg(new idu_intr()),
-    io.lock     -> buf.intr,
-    buf.valid   -> buf.intr,
-    io.in.valid -> ret_intr
+  val intr   = syscall | breakpt | reserved | eret
+
+  io.in.ready  := ~buf.ready & (~io.lock)
+
+  buf.ready := MuxCase(buf.ready, Array(    // low active
+    clear                   -> false.B,
+    (in.valid & in.ready)   -> true.B,
+    (out.valid & out.ready) -> false.B
   ))
 
-  io.out.valid := valid & ~clear & ~io.lock
-  io.in.ready  := ~io.lock & io.out.ready
-  io.out.bits  := Mux(io.out.valid, buf.out, RegInit(Reg(new exu_info())))
-  io.contr     := Mux(io.out.valid, buf.contr, RegInit(Reg(new inst_contr())))
-  io.intr      := Mux(io.out.valid, buf.intr, RegInit(Reg(new idu_intr())))
-  io.conflict  := buf.conflict
+  val idu_data  = Wire(new exu_info())
+  val idu_contr = Wire(new inst_contr())
+  val idu_conf  = Wire(new conflict_data())
+  val idu_intr  = Wire(new inst_intr())
+  buf.bits.data   := MuxCase(buf.bits.data, Array(
+    clear                   -> RegInit(Reg(new exu_info())),
+    (in.valid & in.ready)   -> idu_data,
+    (out.valid & out.ready) -> RegInit(Reg(new exu_info()))
+  ))
+  buf.bits.contr  := MuxCase(buf.bits.contr, Array(
+    clear                   -> RegInit(Reg(new inst_contr())),
+    (in.valid & in.ready)   -> idu_contr,
+    (out.valid & out.ready) -> RegInit(Reg(new inst_contr()))
+  ))
+  buf.bits.conf   := MuxCase(buf.bits.conf, Array(
+    clear                   -> RegInit(Reg(new conflict_data())),
+    (in.valid & in.ready)   -> idu_conf,
+    (out.valid & out.ready) -> RegInit(Reg(new conflict_data()))
+  ))
+  buf.bits.intr   := MuxCase(buf.bits.intr, Array(
+    clear                   -> RegInit(Reg(new inst_intr())),
+    (in.valid & in.ready)   -> idu_intr,
+    (out.valid & out.ready) -> RegInit(Reg(new inst_intr()))
+  ))
 
-  val pc   = io.in.bits.pc
-  val npc  = io.in.bits.pc + 4.U
-  val inst = io.in.bits.inst
+  buf.valid := MuxCase(buf.valid, Array(
+    clear                   -> false.B,
+    (in.valid & in.ready)   -> true.B,
+    (out.valid & out.ready) -> false.B
+  ))
+
+  out.valid     := buf.valid
+  out.bits      := buf.bits
+  out.bits.conf := buf.bits.conf
+  io.conf       := idu_conf
+
+/****************************** data ******************************/
+  val pc   = in.bits.data.pc
+  val npc  = in.bits.data.pc + 4.U
   val rs   = inst(25, 21)
   val rt   = inst(20, 16)
   val rd   = inst(15, 11)
@@ -95,7 +103,6 @@ class idu extends Module {
     J       -> jext(),
     JAL     -> jext()
   ))
-
   val alu_src = Lookup(inst, false.B, Array(
     ADDI    -> true.B,
     ADDIU   -> true.B,
@@ -118,15 +125,17 @@ class idu extends Module {
     SW      -> true.B,
   ))
 
-  io.rdinfo.rs := Lookup(inst, rs, Array(
+  val reg_rs = Lookup(inst, rs, Array(
     SLLV    -> rt,
     SRAV    -> rt,
     SRLV    -> rt,
     SLL     -> rt,
     SRA     -> rt,
-    SRL     -> rt
+    SRL     -> rt,
+    MFC0    -> rd,
+    MTC0    -> rd
   ))
-  io.rdinfo.rt := Lookup(inst, rt, Array(
+  val reg_rt = Lookup(inst, rt, Array(
     SLLV    -> rs,
     SRAV    -> rs,
     SRLV    -> rs,
@@ -135,13 +144,10 @@ class idu extends Module {
     BLEZ    -> 0.U,
     BLTZ    -> 0.U,
     BGEZAL  -> 0.U,
-    BLTZAL  -> 0.U
+    BLTZAL  -> 0.U,
+    MFC0    -> rd
   ))
-
-  ret_out.pc   := pc
-  ret_out.srca := io.rddata.rs
-  ret_out.srcb := Mux(alu_src, imm, io.rddata.rt)
-  ret_out.rd := Lookup(inst, rd, Array(
+  val reg_rd = Lookup(inst, rd, Array(
     ADDI    -> rt,
     ADDIU   -> rt,
     SLTI    -> rt,
@@ -160,9 +166,15 @@ class idu extends Module {
     LW      -> rt,
     MFC0    -> rt
   ))
-  ret_out.data := io.rddata.rt
+  io.regin.rs   := reg_rs
+  io.regin.rt   := reg_rt
+  idu_data.pc   := pc
+  idu_data.srca := io.regout.rs
+  idu_data.srcb := Mux(alu_src, imm, io.regout.rt)
+  idu_data.data := io.regout.rt
 
-  ret_contr.alu_op := Lookup(inst, alu_nop, Array(
+/****************************** contr ******************************/
+  idu_contr.alu_op := Lookup(inst, alu_nop, Array(
     ADD     -> alu_adds,
     ADDI    -> alu_adds,
     ADDU    -> alu_addu,
@@ -208,7 +220,30 @@ class idu extends Module {
     SH      -> alu_adds,
     SW      -> alu_adds
   ))
-  ret_contr.reg_write := Lookup(inst, false.B, Array(
+  idu_contr.mem_read := Lookup(inst, false.B, Array(
+    LB      -> true.B,
+    LBU     -> true.B,
+    LH      -> true.B,
+    LHU     -> true.B,
+    LW      -> true.B
+  ))
+  idu_contr.mem_write := Lookup(inst, false.B, Array(
+    SB      -> true.B,
+    SH      -> true.B,
+    SW      -> true.B
+  ))
+  idu_contr.mem_mask := Lookup(inst, 0.U, Array(
+    // 0 -> 0B, 1 -> 1B, 2 -> 2B, 3 -> 4B
+    LB      -> 1.U,
+    LBU     -> 1.U,
+    LH      -> 2.U,
+    LHU     -> 2.U,
+    LW      -> 3.U,
+    SB      -> 1.U,
+    SH      -> 2.U,
+    SW      -> 3.U
+  ))
+  idu_contr.reg_write := Lookup(inst, false.B, Array(
     ADD     -> true.B,
     ADDI    -> true.B,
     ADDU    -> true.B,
@@ -247,54 +282,41 @@ class idu extends Module {
     LW      -> true.B,
     MFC0    -> true.B
   ))
-  ret_contr.hi_write := Lookup(inst, false.B, Array(
+  idu_contr.hi_write := Lookup(inst, false.B, Array(
     DIV     -> true.B,
     DIVU    -> true.B,
     MULT    -> true.B,
     MULTU   -> true.B,
     MTHI    -> true.B
   ))
-  ret_contr.lo_write := Lookup(inst, false.B, Array(
+  idu_contr.lo_write := Lookup(inst, false.B, Array(
     DIV     -> true.B,
     DIVU    -> true.B,
     MULT    -> true.B,
     MULTU   -> true.B,
     MTLO    -> true.B
   ))
-  ret_contr.hi_read := Lookup(inst, false.B, Array(
+  idu_contr.hi_read := Lookup(inst, false.B, Array(
     MFHI    -> true.B
   ))
-  ret_contr.lo_read := Lookup(inst, false.B, Array(
+  idu_contr.lo_read := Lookup(inst, false.B, Array(
     MFLO    -> true.B
   ))
-  ret_contr.hilo_src := Lookup(inst, false.B, Array(
+  idu_contr.hilo_src := Lookup(inst, false.B, Array(
     MTHI    -> true.B,
     MTLO    -> true.B
   ))
-  ret_contr.mem_read := Lookup(inst, false.B, Array(
-    LB      -> true.B,
-    LBU     -> true.B,
-    LH      -> true.B,
-    LHU     -> true.B,
-    LW      -> true.B
+  idu_contr.jump := Lookup(inst, false.B, Array(
+    J       -> true.B,
+    JAL     -> true.B,
+    JR      -> true.B,
+    JALR    -> true.B
   ))
-  ret_contr.mem_write := Lookup(inst, false.B, Array(
-    SB      -> true.B,
-    SH      -> true.B,
-    SW      -> true.B
+  idu_contr.jaddr := Lookup(inst, io.regout.rs, Array(
+    J       -> Cat(npc(31, 28), imm(25, 0), 0.U(2.W)),
+    JAL     -> Cat(npc(31, 28), imm(25, 0), 0.U(2.W))
   ))
-  ret_contr.mem_mask := Lookup(inst, 0.U, Array(
-    // 0 -> 0B, 1 -> 1B, 2 -> 2B, 3 -> 4B
-    LB      -> 1.U,
-    LBU     -> 1.U,
-    LH      -> 2.U,
-    LHU     -> 2.U,
-    LW      -> 3.U,
-    SB      -> 1.U,
-    SH      -> 2.U,
-    SW      -> 3.U
-  ))
-  ret_contr.branch := Lookup(inst, false.B, Array(
+  idu_contr.branch := Lookup(inst, false.B, Array(
     BEQ     -> true.B,
     BNE     -> true.B,
     BGEZ    -> true.B,
@@ -304,7 +326,7 @@ class idu extends Module {
     BGEZAL  -> true.B,
     BLTZAL  -> true.B
   ))
-  ret_contr.cmp := Lookup(inst, 0.U, Array(
+  idu_contr.cmp := Lookup(inst, 0.U, Array(
     // 0 -> NOP, 1 -> Reserved, 2 -> "==", 3 -> "!="
     // 4 -> ">=", 5 -> ">", 6 -> "<=", 7 -> "<"
     SLT     -> 7.U,
@@ -320,24 +342,14 @@ class idu extends Module {
     BGEZAL  -> 4.U,
     BLTZAL  -> 7.U
   ))
-  ret_contr.baddr := npc + Cat(Fill(14, imm(15)), imm(15, 0), 0.U(2.W))
-  ret_contr.jump := Lookup(inst, false.B, Array(
-    J       -> true.B,
-    JAL     -> true.B,
-    JR      -> true.B,
-    JALR    -> true.B
-  ))
-  ret_contr.jaddr := Lookup(inst, io.rddata.rs, Array(
-    J       -> Cat(npc(31, 28), imm(25, 0), 0.U(2.W)),
-    JAL     -> Cat(npc(31, 28), imm(25, 0), 0.U(2.W))
-  ))
-  ret_contr.link := Lookup(inst, false.B, Array(
+  idu_contr.baddr := npc + Cat(Fill(14, imm(15)), imm(15, 0), 0.U(2.W))
+  idu_contr.link := Lookup(inst, false.B, Array(
     BGEZAL  -> true.B,
     BLTZAL  -> true.B,
     JAL     -> true.B,
     JALR    -> true.B
   ))
-  ret_contr.signed := Lookup(inst, false.B, Array(
+  idu_contr.signed := Lookup(inst, false.B, Array(
     SLT     -> true.B,
     SLTI    -> true.B,
     BEQ     -> true.B,
@@ -352,19 +364,30 @@ class idu extends Module {
     LH      -> true.B,
     LW      -> true.B
   ))
-  // conflict
-  ret_conflict.rs := io.rdinfo.rs
-  ret_conflict.rt := io.rdinfo.rt
-  ret_conflict.rd := ret_out.rd
+  idu_contr.cp0_read := Lookup(inst, false.B, Array(
+    MFC0    -> true.B
+  ))
+  idu_contr.cp0_write := Lookup(inst, false.B, Array(
+    MTC0    -> true.B
+  ))
 
-  ret_intr.pc := pc
-  ret_intr.syscall := Lookup(inst, false.B, Array(
-    SYSCALL -> true.B
-  ))
-  ret_intr.breakpt := Lookup(inst, false.B, Array(
-    BREAK   -> true.B
-  ))
-  ret_intr.reserved := Lookup(inst, true.B, Array(
+/****************************** conf ******************************/
+  idu_conf.rs := reg_rs
+  idu_conf.rt := reg_rt
+  idu_conf.rd := Mux(idu_contr.reg_write, reg_rd, 0.U)
+
+/****************************** intr ******************************/
+  idu_intr.instrd   := in.bits.intr.instrd
+  idu_intr.datard   := false.B
+  idu_intr.datawt   := false.B
+  idu_intr.vaddr    := in.bits.intr.vaddr
+  idu_intr.syscall  := syscall
+  idu_intr.breakpt  := breakpt
+  idu_intr.reserved := reserved
+  idu_intr.eret     := eret
+  idu_intr.exceed   := false.B
+
+  decoded := Lookup(inst, true.B, Array(
     ADD     -> false.B,
     ADDI    -> false.B,
     ADDU    -> false.B,
@@ -423,15 +446,4 @@ class idu extends Module {
     MFC0    -> false.B,
     MTC0    -> false.B
   ))
-  ret_intr.eret := Lookup(inst, false.B, Array(
-    ERET    -> true.B
-  ))
-  ret_intr.cp0_read := Lookup(inst, false.B, Array(
-    MFC0    -> true.B
-  ))
-  ret_intr.cp0_write := Lookup(inst, false.B, Array(
-    MTC0    -> true.B
-  ))
-  ret_intr.addr := Mux(ret_intr.cp0_write, rt, rd)
-  ret_intr.sel  := inst(2, 0)
 }

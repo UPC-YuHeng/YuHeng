@@ -3,64 +3,37 @@ import chisel3.util._
 
 class exu extends Module {
   class buf_data extends Bundle {
+    val ready = Bool()
     val valid = Bool()
-    val clear = Bool()
-    val out   = new mem_info()
-    val intr  = new exu_intr()
-    val cmp   = Bool()
+    val bits  = new exu_out()
   }
   val io = IO(new Bundle {
-    val in    = Flipped(Decoupled(new exu_info()))
-    val out   = Decoupled(new mem_info())
-    val contr = Input (new exu_contr())
-    val intr  = Output(new exu_intr())
+    val in    = Flipped(Decoupled(new exu_in()))
+    val out   = Decoupled(new exu_out())
+    val flush = Input (Bool())
     val cmp   = Output(Bool())
-    val clear = Input (Bool())
-    val ok    = Output(Bool())
   })
 
-  val ret_out  = Wire(new mem_info())
-  val ret_intr = Wire(new exu_intr())
-  val ret_cmp  = Wire(Bool())
+  val in  = io.in
+  val out = io.out
+  val buf = RegInit(Reg(new buf_data()))
 
-  val buf   = RegInit(Reg(new buf_data()))
-  val valid = buf.valid & io.out.ready
-  io.ok    := valid
+  val clear = io.flush
 
-  val clear  = buf.clear | io.clear
-  buf.clear  := ~valid & clear
+  in.ready := ~buf.ready
 
-  buf.valid := ~valid & (buf.valid | io.in.valid)
-  buf.out   := MuxCase(Reg(new mem_info()), Array(
-    clear      -> Reg(new mem_info()),
-    buf.valid  -> buf.out,
-    io.in.valid -> ret_out
+  buf.ready := MuxCase(buf.ready, Array(    // low active
+    clear                   -> false.B,
+    (in.valid & in.ready)   -> true.B,
+    (out.valid & out.ready) -> false.B
   ))
-  buf.intr  := MuxCase(Reg(new exu_intr()), Array(
-    clear       -> Reg(new exu_intr()),
-    buf.valid   -> buf.intr,
-    io.in.valid -> ret_intr
-  ))
-  buf.cmp  := MuxCase(false.B, Array(
-    clear       -> false.B,
-    buf.valid   -> buf.cmp,
-    io.in.valid -> ret_cmp
-  ))
-
-  io.out.valid := valid & ~clear
-  io.in.ready  := io.out.ready
-  io.out.bits  := Mux(io.out.valid, buf.out, RegInit(Reg(new mem_info())))
-  io.intr      := Mux(io.out.valid, buf.intr, RegInit(Reg(new exu_intr())))
-  io.cmp       := Mux(io.out.valid, buf.cmp, false.B)
-
-  val pc   = io.in.bits.pc
 
   val alu = Module(new alu())
-  alu.io.in.alu_op := io.contr.alu_op
-  alu.io.in.srca   := io.in.bits.srca
-  alu.io.in.srcb   := io.in.bits.srcb
+  alu.io.in.alu_op := in.bits.contr.alu_op
+  alu.io.in.srca   := in.bits.data.srca
+  alu.io.in.srcb   := in.bits.data.srcb
 
-  ret_cmp := MuxLookup(Cat(io.contr.signed.asUInt(), io.contr.cmp), false.B, Array(
+  val compare = MuxLookup(Cat(in.bits.contr.signed.asUInt(), in.bits.contr.cmp), false.B, Array(
 		// 0 -> NOP, 1 -> Reserved, 2 -> "==", 3 -> "!="
 		// 4 -> ">=", 5 -> ">", 6 -> "<=", 7 -> "<"
     0x2.U -> alu.io.out.zero.asBool(),
@@ -77,13 +50,82 @@ class exu extends Module {
     0xf.U -> (~alu.io.out.signs).asBool(),
   ))
 
-  ret_out.pc   := io.in.bits.pc
-  ret_out.dest := Mux(io.contr.cmp === 0.U, alu.io.out.dest, ret_cmp.asUInt())
-  ret_out.data := io.in.bits.data
-  ret_out.rd   := io.in.bits.rd
-  ret_out.hi   := Mux(io.contr.hilo_src, io.in.bits.srca, alu.io.out.dest_hi)
-  ret_out.lo   := Mux(io.contr.hilo_src, io.in.bits.srca, alu.io.out.dest_lo)
+  val exu_data  = Wire(new mem_info())
+  val exu_contr = Wire(new inst_contr())
+  val exu_conf  = Wire(new conflict_data())
+  val exu_intr  = Wire(new inst_intr())
+  buf.bits.data := MuxCase(buf.bits.data, Array(
+    clear                   -> RegInit(Reg(new mem_info())),
+    (in.valid & in.ready)   -> exu_data,
+    (out.valid & out.ready) -> RegInit(Reg(new mem_info()))
+  ))
+  buf.bits.contr := MuxCase(buf.bits.contr, Array(
+    clear                   -> RegInit(Reg(new inst_contr())),
+    (in.valid & in.ready)   -> exu_contr,
+    (out.valid & out.ready) -> RegInit(Reg(new inst_contr()))
+  ))
+  buf.bits.conf :=  MuxCase(buf.bits.conf, Array(
+    clear                   -> RegInit(Reg(new conflict_data())),
+    (in.valid & in.ready)   -> exu_conf,
+    (out.valid & out.ready) -> RegInit(Reg(new conflict_data()))
+  ))
+  buf.bits.intr := MuxCase(buf.bits.intr, Array(
+    clear                   -> RegInit(Reg(new inst_intr())),
+    (in.valid & in.ready)   -> exu_intr,
+    (out.valid & out.ready) -> RegInit(Reg(new inst_intr()))
+  ))
 
-  ret_intr.pc     := pc
-  ret_intr.exceed := alu.io.out.exceed
+  buf.valid := MuxCase(buf.valid, Array(
+    clear                   -> false.B,
+    (in.valid & in.ready)   -> true.B,
+    (out.valid & out.ready) -> false.B
+  ))
+
+  out.valid := buf.valid
+  out.bits  := buf.bits
+  io.cmp    := compare
+
+/****************************** data ******************************/
+  exu_data.pc   := in.bits.data.pc
+  exu_data.dest := Mux(in.bits.contr.cmp === 0.U, alu.io.out.dest, compare.asUInt())
+  exu_data.data := in.bits.data.data
+  exu_data.hi   := Mux(in.bits.contr.hilo_src, in.bits.data.srca, alu.io.out.dest_hi)
+  exu_data.lo   := Mux(in.bits.contr.hilo_src, in.bits.data.srca, alu.io.out.dest_lo)
+
+/****************************** contr ******************************/
+  exu_contr.alu_op    := false.B
+  exu_contr.mem_read  := in.bits.contr.mem_read
+  exu_contr.mem_write := in.bits.contr.mem_write
+  exu_contr.mem_mask  := in.bits.contr.mem_mask
+  exu_contr.reg_write := in.bits.contr.reg_write
+  exu_contr.hi_write  := in.bits.contr.hi_write
+  exu_contr.lo_write  := in.bits.contr.lo_write
+  exu_contr.hi_read   := in.bits.contr.hi_read
+  exu_contr.lo_read   := in.bits.contr.lo_read
+  exu_contr.hilo_src  := false.B
+  exu_contr.jump      := in.bits.contr.jump
+  exu_contr.jaddr     := 0.U
+  exu_contr.branch    := in.bits.contr.branch
+  exu_contr.cmp       := 0.U
+  exu_contr.baddr     := 0.U
+  exu_contr.link      := in.bits.contr.link
+  exu_contr.signed    := in.bits.contr.signed
+  exu_contr.cp0_read  := in.bits.contr.cp0_read
+  exu_contr.cp0_write := in.bits.contr.cp0_write
+
+/****************************** conf ******************************/
+  exu_conf.rs := in.bits.conf.rs
+  exu_conf.rt := in.bits.conf.rt
+  exu_conf.rd := Mux(in.bits.contr.reg_write, in.bits.conf.rd, 0.U)
+
+/****************************** intr ******************************/
+  exu_intr.instrd   := in.bits.intr.instrd
+  exu_intr.datard   := false.B
+  exu_intr.datawt   := false.B
+  exu_intr.vaddr    := in.bits.intr.vaddr
+  exu_intr.syscall  := in.bits.intr.syscall
+  exu_intr.breakpt  := in.bits.intr.breakpt
+  exu_intr.reserved := in.bits.intr.reserved
+  exu_intr.eret     := in.bits.intr.eret
+  exu_intr.exceed   := alu.io.out.exceed
 }

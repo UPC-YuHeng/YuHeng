@@ -70,12 +70,10 @@ class ram_io extends Bundle {
 
 class mmu extends Module{
   val io = IO(new Bundle{
-    val inst_sram  = Input(new ram_io()) //ifu
-    val data_sram  = Input(new ram_io()) //mem
-    val inst_rdata = Output(UInt(32.W))
-    val data_rdata = Output(UInt(32.W))
-    val ifu_ready  = Output(Bool())
-    val mem_ready  = Output(Bool())
+    val inst_sram  = Input (new ram_in())
+    val data_sram  = Input (new ram_in())  
+    val inst_out   = Output(new ram_out())
+    val data_out   = Output(new ram_out())
     val in         = Input (new master_in())
     val out        = Output(new master_out())
   })
@@ -100,10 +98,10 @@ class mmu extends Module{
   axi.io.data_in.wen     := io.data_sram.wen
   axi.io.data_in.wdata   := io.data_sram.wdata
   
-  io.ifu_ready := (axi.io.data_out.rid === "b0001".U & axi.io.data_out.rready)
-  io.mem_ready := (axi.io.data_out.rid === "b0010".U & axi.io.data_out.rready & io.data_sram.wen === 0.U) | (axi.io.data_out.wready & io.data_sram.wen =/= 0.U)
-  io.inst_rdata := Mux(axi.io.data_out.rid === "b0001".U & axi.io.data_out.rready, axi.io.data_out.rdata, 0.U(32.W))
-  io.data_rdata := Mux(axi.io.data_out.rid === "b0010".U & axi.io.data_out.rready, axi.io.data_out.rdata, 0.U(32.W))
+  io.inst_out.valid := (axi.io.data_out.rid === "b0001".U & axi.io.data_out.rready)
+  io.data_out.valid := (axi.io.data_out.rid === "b0010".U & axi.io.data_out.rready & io.data_sram.wen === 0.U) | (axi.io.data_out.wready & io.data_sram.wen =/= 0.U)
+  io.inst_out.rdata := Mux(axi.io.data_out.rid === "b0001".U & axi.io.data_out.rready, axi.io.data_out.rdata, 0.U(32.W))
+  io.data_out.rdata := Mux(axi.io.data_out.rid === "b0010".U & axi.io.data_out.rready, axi.io.data_out.rdata, 0.U(32.W))
 
   axi.io.in := io.in
   io.out    := axi.io.out

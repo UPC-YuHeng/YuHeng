@@ -10,85 +10,101 @@ class cpu extends Module {
   })
 
   val mmu   = Module(new mmu())
-  val contr = Module(new contr())
-  val intr  = Module(new intr())
+  val reg   = Module(new reg())
+  val cp0   = Module(new cp0())
 
   val amu   = Module(new amu())
   val ifu   = Module(new ifu())
   val idu   = Module(new idu())
   val exu   = Module(new exu())
   val mem   = Module(new mem())
-  val reg   = Module(new reg())
 
-  // shaking hands
-  val ifu_idu = ifu.io.ok & idu.io.in.ready
-  val idu_exu = idu.io.ok & exu.io.in.ready
-  val exu_mem = exu.io.ok & mem.io.in.ready
-  val mem_reg = mem.io.ok & reg.io.memin.ready
-
-  // mmu
-  mmu.io.in        <> io.axi_in
-  mmu.io.out       <> io.axi_out
-  mmu.io.inst_sram <> ifu.io.ram
-  mmu.io.data_sram <> mem.io.ram
-
-  // contr
-  contr.io.idu           := idu.io.contr
-  contr.io.cmp           := exu.io.cmp
-  contr.io.valid.idu_exu := idu_exu
-  contr.io.valid.exu_mem := exu_mem
-  contr.io.valid.mem_reg := mem_reg
-  contr.io.conflict      := idu.io.conflict
-  contr.io.intr          := intr.io.intr
+  // conflict
+  val cidu  = idu.io.conf
+  val cexu  = idu.io.out.bits.conf
+  val cmem1 = exu.io.out.bits.conf
+  val cmem2 = mem.io.out.bits.conf1
+  val creg  = mem.io.out.bits.conf2
+  val conflict_exu  = cexu.rd.orR  & (cidu.rs === cexu.rd  | cidu.rt === cexu.rd)
+  val conflict_mem1 = cmem1.rd.orR & (cidu.rs === cmem1.rd | cidu.rt === cmem1.rd)
+  val conflict_mem2 = cmem2.rd.orR & (cidu.rs === cmem2.rd | cidu.rt === cmem2.rd)
+  val conflict_reg  = creg.rd.orR  & (cidu.rs === creg.rd  | cidu.rt === creg.rd)
+  val conflict      = conflict_exu | conflict_mem1 | conflict_mem2 | conflict_reg
 
   // intr
-  intr.io.eint          := io.int
-  intr.io.ifu           := ifu.io.intr
-  intr.io.idu           := idu.io.intr
-  intr.io.exu           := exu.io.intr
-  intr.io.mem           := mem.io.intr
-  intr.io.regout        := reg.io.introut
-  intr.io.valid.ifu_idu := ifu_idu
-  intr.io.valid.idu_exu := idu_exu
-  intr.io.valid.exu_mem := exu_mem
-  intr.io.branch        := contr.io.branch
-  intr.io.lock          := contr.io.lock
+  val intr  = (
+    mem.io.out.bits.intr.instrd |
+    mem.io.out.bits.intr.datard |
+    mem.io.out.bits.intr.datawt |
+    mem.io.out.bits.intr.syscall |
+    mem.io.out.bits.intr.breakpt |
+    mem.io.out.bits.intr.reserved |
+    mem.io.out.bits.intr.exceed
+  ) & (~cp0.io.status.exl) & cp0.io.status.ie
+
+  // mmu
+  mmu.io.inst_sram := ifu.io.rin
+  mmu.io.data_sram := mem.io.rin
+  mmu.io.in        := io.axi_in
+  io.axi_out       := mmu.io.out
 
   // amu
-  amu.io.contr := contr.io.amu
-  amu.io.intr  := intr.io.amu
-
+  amu.io.in.contr.branch := idu.io.out.bits.contr.branch & exu.io.cmp
+  amu.io.in.contr.baddr  := idu.io.out.bits.contr.baddr
+  amu.io.in.contr.jump   := idu.io.out.bits.contr.jump
+  amu.io.in.contr.jaddr  := idu.io.out.bits.contr.jaddr
+  amu.io.in.intr.intr    := intr
+  amu.io.in.intr.eret    := mem.io.out.bits.intr.eret
+  amu.io.in.intr.eaddr   := cp0.io.status.epc
+  
   // ifu
-  ifu.io.in    <> amu.io.out
-  ifu.io.ram   <> mmu.io.inst_sram
-  ifu.io.rdok  := mmu.io.ifu_ready
-  ifu.io.clear := contr.io.clear | intr.io.intr
-  ifu.io.rdata := mmu.io.inst_rdata
+  ifu.io.in     <> amu.io.out
+  ifu.io.rout   := mmu.io.inst_out
+  ifu.io.flush  := intr
+
   // idu
   idu.io.in     <> ifu.io.out
-  idu.io.rddata <> reg.io.iduout
-  idu.io.clear  := intr.io.intr
-  idu.io.lock   := contr.io.lock
+  idu.io.regout <> reg.io.outa
+  idu.io.lock   := conflict
+  idu.io.flush  := intr
 
-  // exu
-  exu.io.in    <> idu.io.out
-  exu.io.contr := contr.io.exu
-  exu.io.clear := intr.io.intr
+  // exu 
+  exu.io.in     <> idu.io.out
+  exu.io.flush  := intr
 
   // mem
-  mem.io.in    <> exu.io.out
-  mem.io.rdok  := mmu.io.mem_ready
-  mem.io.contr := contr.io.mem
-  mem.io.clear := intr.io.intr
-  mem.io.rdata := mmu.io.data_rdata
-
+  mem.io.in     <> exu.io.out
+  mem.io.rout   <> mmu.io.data_out
+  mem.io.flush  := intr
+  
   // reg
-  reg.io.memin  <> mem.io.out
-  reg.io.iduin  := idu.io.rdinfo
-  reg.io.intrin := intr.io.regin
-  reg.io.contr  := contr.io.reg
-  reg.io.intr   := intr.io.reg
+  reg.io.ina      := idu.io.regin
+  reg.io.inb.rt   := mem.io.out.bits.conf2.rt
+  reg.io.in       <> mem.io.out
+  reg.io.cp0_data := cp0.io.out.data
+
+  // cp0
+  cp0.io.in.rd         := mem.io.out.bits.conf2.rs      // decoding rs -> rd while dealing with cp0
+  cp0.io.in.sel        := 0.U                           // no use for now
+  cp0.io.in.data       := reg.io.outb.rt
+  cp0.io.contr.write   := mem.io.out.bits.contr.cp0_write
+  cp0.io.intr.intr     := intr
+  cp0.io.intr.eint     := io.int
+  cp0.io.intr.branch   := RegEnable(
+    mem.io.out.bits.contr.jump | mem.io.out.bits.contr.branch,
+    false.B,
+    mem.io.out.valid & reg.io.in.ready
+  ) // branch delay
+  cp0.io.intr.addrrd   := mem.io.out.bits.intr.instrd | mem.io.out.bits.intr.datard
+  cp0.io.intr.addrwt   := mem.io.out.bits.intr.datawt
+  cp0.io.intr.exceed   := mem.io.out.bits.intr.exceed
+  cp0.io.intr.syscall  := mem.io.out.bits.intr.syscall
+  cp0.io.intr.breakpt  := mem.io.out.bits.intr.breakpt
+  cp0.io.intr.reserved := mem.io.out.bits.intr.reserved
+  cp0.io.intr.eret     := mem.io.out.bits.intr.eret
+  cp0.io.intr.epc      := mem.io.out.bits.data.pc
+  cp0.io.intr.vaddr    := mem.io.out.bits.intr.vaddr
 
   // debug_io
-  io.debug_wb := reg.io.debug_wb
+  io.debug_wb   := reg.io.debug_wb
 }

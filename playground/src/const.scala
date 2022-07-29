@@ -96,45 +96,15 @@ object CP0RegisterList {
   val epc      = 14.U
 }
 
-/******************** amu ********************/
+/******************** contr ********************/
 
-class amu_contr extends Bundle {
-  val branch = Bool()
-  val baddr  = UInt(32.W)
-  val jump   = Bool()
-  val jaddr  = UInt(32.W)
-}
-class amu_intr extends Bundle {
-  val intr  = Bool()
-  val eret  = Bool()
-  val eaddr = UInt(32.W)
-}
-
-/******************** ifu ********************/
-
-class inst_info extends Bundle {
-  // pc (to be fetched from)
-  val addr = UInt(32.W)
-}
-class ifu_intr extends Bundle {
-  // pc
-  val pc     = UInt(32.W)
-  // intr
-  val instrd = Bool()
-  val vaddr  = UInt(32.W)
-}
-
-/******************** idu ********************/
-
-class inst_data extends Bundle {
-  // pc (used by baddr, jaddr, linkpc, and intr)
-  val pc   = UInt(32.W)
-  // inst (for decoding)
-  val inst = UInt(32.W)
-}
 class inst_contr extends Bundle {
   // alu
   val alu_op    = UInt(4.W)
+  // mem
+  val mem_read  = Bool()
+  val mem_write = Bool()
+  val mem_mask  = UInt(2.W)
   // reg
   val reg_write = Bool()
   val hi_write  = Bool()
@@ -142,31 +112,16 @@ class inst_contr extends Bundle {
   val hi_read   = Bool()
   val lo_read   = Bool()
   val hilo_src  = Bool()
-  // mem
-  val mem_read  = Bool()
-  val mem_write = Bool()
-  val mem_mask  = UInt(2.W)
-  // branch & jump
+  // jump & branch
+  val jump      = Bool()
+  val jaddr     = UInt(32.W)
   val branch    = Bool()
   val cmp       = UInt(3.W)
   val baddr     = UInt(32.W)
-  val jump      = Bool()
-  val jaddr     = UInt(32.W)
   val link      = Bool()
   // signed / unsigned
   val signed    = Bool()
-}
-class idu_intr extends Bundle {
-  // pc
-  val pc        = UInt(32.W)
-  // intr
-  val syscall   = Bool()
-  val breakpt   = Bool()
-  val reserved  = Bool()
-  val eret      = Bool()
-  // cp0 (for reading and writing with cp0)
-  val addr      = UInt(5.W)
-  val sel       = UInt(3.W)
+  // cp0
   val cp0_read  = Bool()
   val cp0_write = Bool()
 }
@@ -177,34 +132,96 @@ class conflict_data extends Bundle {
   val rt        = UInt(5.W)
   val rd        = UInt(5.W)
 }
-/******************** exu ********************/
+
+/******************** intr ********************/
+
+class inst_intr extends Bundle {
+  val instrd    = Bool()
+  val datard    = Bool()
+  val datawt    = Bool()
+  val vaddr     = UInt(32.W)
+  val syscall   = Bool()
+  val breakpt   = Bool()
+  val reserved  = Bool()
+  val eret      = Bool()
+  val exceed    = Bool()
+}
+
+/******************** reg ********************/
+
+class regread_in extends Bundle {
+  val rs = UInt(5.W)
+  val rt = UInt(5.W)
+}
+class regread_out extends Bundle {
+  val rs = UInt(32.W)
+  val rt = UInt(32.W)
+}
+
+/******************** amu ********************/
+
+class ifu_info extends Bundle {
+  // pc (to be fetched from)
+  val addr   = UInt(32.W)
+}
+class amu_contr extends Bundle {
+  val jump      = Bool()
+  val jaddr     = UInt(32.W)
+  val branch    = Bool()
+  val baddr     = UInt(32.W)
+}
+class amu_intr extends Bundle {
+  val intr   = Bool()
+  val eret   = Bool()
+  val eaddr  = UInt(32.W)
+}
+class amu_in extends Bundle {
+  val contr  = new amu_contr()
+  val intr   = new amu_intr()
+}
+class amu_out extends Bundle {
+  val data   = new ifu_info()
+}
+
+/******************** ifu ********************/
+
+class idu_info extends Bundle {
+  // pc (used by baddr, jaddr, linkpc, and intr)
+  val pc   = UInt(32.W)
+  // inst (for decoding)
+  val inst = UInt(32.W)
+}
+class ifu_in extends Bundle {
+  val data = new ifu_info()
+}
+class ifu_out extends Bundle {
+  val data = new idu_info()
+  val intr = new inst_intr()
+}
+
+/******************** idu ********************/
 
 class exu_info extends Bundle {
   // pc (used for laddr and intr)
-  val pc   = UInt(32.W)
+  val pc    = UInt(32.W)
   // alu (operation numbers)
-  val srca = UInt(32.W)
-  val srcb = UInt(32.W)
+  val srca  = UInt(32.W)
+  val srcb  = UInt(32.W)
   // reg
-  val rd   = UInt(5.W)
-  val data = UInt(32.W)
+  val data  = UInt(32.W)
 }
-class exu_contr extends Bundle {
-  // alu
-  val alu_op   = UInt(4.W)
-  val cmp      = UInt(3.W)
-  val signed   = Bool()
-  // hilo
-  val hilo_src = Bool()
+class idu_in extends Bundle {
+  val data  = new idu_info()
+  val intr  = new inst_intr()
 }
-class exu_intr extends Bundle {
-  // pc
-  val pc     = UInt(32.W)
-  // intr
-  val exceed = Bool()
+class idu_out extends Bundle {
+  val data  = new exu_info()
+  val contr = new inst_contr()
+  val conf  = new conflict_data()
+  val intr  = new inst_intr()
 }
 
-/******************** mem ********************/
+/******************** exu ********************/
 
 class mem_info extends Bundle {
   // pc (used for laddr and intr)
@@ -213,35 +230,24 @@ class mem_info extends Bundle {
   val dest = UInt(32.W)
   val data = UInt(32.W)
   // reg
-  val rd   = UInt(5.W)
   val hi   = UInt(32.W)
   val lo   = UInt(32.W)
 }
-class mem_contr extends Bundle {
-  val mem_read  = Bool()
-  val mem_write = Bool()
-  val mem_mask  = UInt(2.W)
-  val signed    = Bool()
+class exu_in extends Bundle {
+  val data  = new exu_info()
+  val contr = new inst_contr()
+  val conf  = new conflict_data()
+  val intr  = new inst_intr()
 }
-class mem_intr extends Bundle {
-  // pc
-  val pc     = UInt(32.W)
-  // intr
-  val datard = Bool()
-  val datawt = Bool()
-  val vaddr  = UInt(32.W)
+class exu_out extends Bundle {
+  val data  = new mem_info()
+  val contr = new inst_contr()
+  val conf  = new conflict_data()
+  val intr  = new inst_intr()
 }
 
-/******************** reg ********************/
+/******************** mem ********************/
 
-class idu_reginfo extends Bundle {
-  val rs = UInt(5.W)
-  val rt = UInt(5.W)
-}
-class idu_regdata extends Bundle {
-  val rs = UInt(32.W)
-  val rt = UInt(32.W)
-}
 class reg_info extends Bundle {
   // pc (used for laddr and intr)
   val pc   = UInt(32.W)
@@ -251,20 +257,28 @@ class reg_info extends Bundle {
   val hi   = UInt(32.W)
   val lo   = UInt(32.W)
 }
-class reg_contr extends Bundle {
-  // reg
-  val reg_write = Bool()
-  val hi_read   = Bool()
-  val lo_read   = Bool()
-  val hi_write  = Bool()
-  val lo_write  = Bool()
-  // JAL/JALR
-  val link      = Bool()
+class mem_in extends Bundle {
+  val data  = new mem_info()
+  val contr = new inst_contr()
+  val conf  = new conflict_data()
+  val intr  = new inst_intr()
 }
-class reg_intr extends Bundle {
-  // cp0
-  val cp0_read = Bool()
-  val cp0_data = UInt(32.W)
+class mem_out extends Bundle {
+  val data  = new reg_info()
+  val contr = new inst_contr()
+  val conf1 = new conflict_data()
+  val conf2 = new conflict_data()
+  val intr  = new inst_intr()
+}
+
+/******************** reg ********************/
+
+class reg_in extends Bundle {
+  val data  = new reg_info()
+  val contr = new inst_contr()
+  val conf1 = new conflict_data()
+  val conf2 = new conflict_data()
+  val intr  = new inst_intr()
 }
 
 /******************** cp0 ********************/
@@ -299,7 +313,7 @@ class intr_reginfo extends Bundle {
   val rt   = UInt(5.W)
 }
 class intr_regdata extends Bundle {
-  val data = UInt(32.W)
+  val rt   = UInt(32.W)
 }
 class intr_cp0info extends Bundle {
   val rd   = UInt(5.W)
@@ -308,6 +322,19 @@ class intr_cp0info extends Bundle {
 }
 class intr_cp0data extends Bundle {
   val data = UInt(32.W)
+}
+
+/******************** ram ********************/
+
+class ram_in extends Bundle {
+  val en    = Bool()
+  val wen   = UInt(4.W)
+  val addr  = UInt(32.W)
+  val wdata = UInt(32.W)
+}
+class ram_out extends Bundle {
+  val valid = Bool()
+  val rdata = UInt(32.W)
 }
 
 /******************** debug ********************/
