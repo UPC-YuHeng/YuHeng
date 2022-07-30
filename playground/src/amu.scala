@@ -23,5 +23,9 @@ class amu extends Module {
   pre_pc := Mux(out.ready, pc, pre_pc)
 
   out.valid := true.B
-  out.bits.data.addr := Mux(out.ready, pc, pre_pc)
+  out.bits.data.addr := MuxCase(pre_pc, Array(
+    in.intr.intr    -> "hbfc00380".U,
+    in.intr.eret    -> in.intr.eaddr,
+    out.ready       -> pc
+  ))
 }

@@ -18,20 +18,20 @@ class ifu extends Module {
     val flush = Input (Bool())
   })
 
-  val flush = RegInit(false.B)
-  val clear = flush | io.flush
-  flush := ~io.rout.valid & clear
-
   val in    = io.in
   val out   = io.out
   val bin   = RegInit(Reg(new bin_data()))
   val bout  = RegInit(Reg(new bout_data()))
 
   val instrd = MuxCase(bout.bits.intr.instrd, Array(
-    clear                   -> false.B,
-    (in.valid & in.ready)   -> in.bits.data.addr(1, 0).orR, 
-    (out.valid & out.ready) -> false.B
+    bin.ready -> bin.bits.data.addr(1, 0).orR
   ))
+
+  val mem_en = ~instrd
+
+  val flush = RegInit(false.B)
+  val clear = flush | io.flush
+  flush := ~io.rout.valid & ~(bin.ready & ~mem_en) & clear
 
   val intr   = instrd
   val valid  = io.rout.valid | bout.valid
@@ -49,7 +49,7 @@ class ifu extends Module {
   ))
 
   // fetch inst
-  io.rin.en    := bin.ready & ~valid & ~intr
+  io.rin.en    := bin.ready & mem_en & ~valid
   io.rin.wen   := 0.U
   io.rin.addr  := bin.bits.data.addr
   io.rin.wdata := 0.U
@@ -61,6 +61,7 @@ class ifu extends Module {
   ))
   bout.bits.data.inst   := MuxCase(bout.bits.data.inst, Array(
     clear                   -> 0.U,
+    instrd                  -> 0.U,
     io.rout.valid           -> io.rout.rdata
   ))
   bout.bits.intr        := MuxCase(bout.bits.intr, Array(
@@ -70,6 +71,7 @@ class ifu extends Module {
   ))
   bout.valid            := MuxCase(bout.valid, Array(
     clear                   -> false.B,
+    instrd                  -> true.B,
     io.rout.valid           -> true.B,
     (out.valid & out.ready) -> false.B
   ))

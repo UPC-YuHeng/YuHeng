@@ -1,12 +1,12 @@
 import chisel3._
 import chisel3.util._
 
-//axi
+// axi
 class master_in extends Bundle{
-  //request read
+  // request read
   val arready = Bool()
 
-  //response read
+  // response read
   val rid     = UInt(4.W)
   val rdata   = UInt(32.W)
   val rresp   = UInt(2.W)
@@ -15,17 +15,17 @@ class master_in extends Bundle{
   // request write
   val awready  = Bool()
 
-  //write data
+  // write data
   val wready = Bool()
 
-  //response write
+  // response write
   val bid    = UInt(4.W)
   val bresp  = UInt(2.W)
   val bvalid = Bool()
 }
 
 class master_out extends Bundle{
-  //request read
+  // request read
   val arid    = UInt(4.W)
   val araddr  = UInt(32.W)
   val arlen   = UInt(8.W)
@@ -36,10 +36,10 @@ class master_out extends Bundle{
   val arprot  = UInt(3.W)
   val arvalid = Bool()
   
-  //response read
+  // response read
   val rready  = Bool()
 
-  //request write
+  // request write
   val awid    = UInt(4.W)
   val awaddr  = UInt(32.W)
   val awlen   = UInt(8.W)
@@ -50,14 +50,14 @@ class master_out extends Bundle{
   val awprot  = UInt(3.W)
   val awvalid = Bool()
 
-  //write data
+  // write data
   val wid     = UInt(4.W)
   val wdata   = UInt(32.W)
   val wstrb   = UInt(4.W)
   val wlast   = Bool()
   val wvalid  = Bool()
 
-  //response write
+  // response write
   val bready  = Bool()
 }
 

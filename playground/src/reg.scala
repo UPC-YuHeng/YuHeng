@@ -11,6 +11,7 @@ class reg extends Module {
     // write port
     val in       = Flipped(Decoupled(new reg_in()))
     val cp0_data = Input (UInt(32.W))
+    val flush    = Input (Bool())
     val debug_wb = Output(new debug_io())
   })
 
@@ -29,6 +30,9 @@ class reg extends Module {
   // intr-read
   io.outb.rt := reg(io.inb.rt)
 
+  val reg_en = Mux(io.flush, false.B, in.bits.contr.reg_write)
+  val hi_en  = Mux(io.flush, false.B, in.bits.contr.hi_write)
+  val lo_en  = Mux(io.flush, false.B, in.bits.contr.lo_write)
   val wdata = MuxCase(in.bits.data.data, Array(
     in.bits.contr.hi_read  -> reg_hi,
     in.bits.contr.lo_read  -> reg_lo,
@@ -37,21 +41,21 @@ class reg extends Module {
   ))
 
   // normal regs
-  when (in.bits.contr.reg_write) {
+  when (reg_en) {
     reg(in.bits.data.addr) := wdata
   }
   reg(0) := 0.U
   // hilo regs
-  when (in.bits.contr.hi_write) {
+  when (hi_en) {
     reg_hi := in.bits.data.hi
   }
-  when (in.bits.contr.lo_write) {
+  when (lo_en) {
     reg_lo := in.bits.data.lo
   }
 
   // debug io
   io.debug_wb.pc       := pc
-  io.debug_wb.rf_wen   := Fill(4, in.bits.contr.reg_write)
+  io.debug_wb.rf_wen   := Fill(4, reg_en)
   io.debug_wb.rf_wnum  := in.bits.data.addr
   io.debug_wb.rf_wdata := wdata
 }

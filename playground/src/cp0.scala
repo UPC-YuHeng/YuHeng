@@ -74,10 +74,9 @@ class cp0 extends Module {
     ),
     0.U(1.W),
     0.U(14.W),
-    io.intr.eint,
     Mux(io.contr.write & io.in.rd === cause,
-      io.in.data(9, 8),
-      cp0(cause)(9, 8)
+      io.in.data(15, 8),
+      Cat(io.intr.eint | cp0(cause)(15, 10), cp0(cause)(9, 8))
     ),
     0.U(1.W),
     MuxCase(cp0(cause)(6, 2), Array(

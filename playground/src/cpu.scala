@@ -32,15 +32,20 @@ class cpu extends Module {
   val conflict      = conflict_exu | conflict_mem1 | conflict_mem2 | conflict_reg
 
   // intr
-  val intr  = (
+  val eint = Mux(mem.io.out.valid & reg.io.in.ready,
+    cp0.io.status.cp0_intr & (~cp0.io.status.exl) & cp0.io.status.ie,
+    false.B
+  )
+  val intr = (
     mem.io.out.bits.intr.instrd |
     mem.io.out.bits.intr.datard |
     mem.io.out.bits.intr.datawt |
     mem.io.out.bits.intr.syscall |
     mem.io.out.bits.intr.breakpt |
     mem.io.out.bits.intr.reserved |
-    mem.io.out.bits.intr.exceed
-  ) & (~cp0.io.status.exl) & cp0.io.status.ie
+    mem.io.out.bits.intr.exceed |
+    eint
+  )
 
   // mmu
   mmu.io.inst_sram := ifu.io.rin
@@ -60,29 +65,35 @@ class cpu extends Module {
   // ifu
   ifu.io.in     <> amu.io.out
   ifu.io.rout   := mmu.io.inst_out
-  ifu.io.flush  := intr
+  ifu.io.flush  := intr | mem.io.out.bits.intr.eret
 
   // idu
   idu.io.in     <> ifu.io.out
   idu.io.regout <> reg.io.outa
   idu.io.lock   := conflict
-  idu.io.flush  := intr
+  idu.io.flush  := intr | mem.io.out.bits.intr.eret
 
-  // exu 
+  // exu
   exu.io.in     <> idu.io.out
-  exu.io.flush  := intr
+  exu.io.flush  := intr | mem.io.out.bits.intr.eret
 
   // mem
   mem.io.in     <> exu.io.out
   mem.io.rout   <> mmu.io.data_out
-  mem.io.flush  := intr
+  mem.io.flush  := intr | mem.io.out.bits.intr.eret
   
   // reg
   reg.io.ina      := idu.io.regin
   reg.io.inb.rt   := mem.io.out.bits.conf2.rt
   reg.io.in       <> mem.io.out
   reg.io.cp0_data := cp0.io.out.data
+  reg.io.flush    := intr | mem.io.out.bits.intr.eret
 
+  val branch_delay = RegEnable(
+    mem.io.out.bits.contr.jump | mem.io.out.bits.contr.branch,
+    false.B,
+    mem.io.out.valid & reg.io.in.ready
+  )
   // cp0
   cp0.io.in.rd         := mem.io.out.bits.conf2.rs      // decoding rs -> rd while dealing with cp0
   cp0.io.in.sel        := 0.U                           // no use for now
@@ -90,11 +101,7 @@ class cpu extends Module {
   cp0.io.contr.write   := mem.io.out.bits.contr.cp0_write
   cp0.io.intr.intr     := intr
   cp0.io.intr.eint     := io.int
-  cp0.io.intr.branch   := RegEnable(
-    mem.io.out.bits.contr.jump | mem.io.out.bits.contr.branch,
-    false.B,
-    mem.io.out.valid & reg.io.in.ready
-  ) // branch delay
+  cp0.io.intr.branch   := branch_delay
   cp0.io.intr.addrrd   := mem.io.out.bits.intr.instrd | mem.io.out.bits.intr.datard
   cp0.io.intr.addrwt   := mem.io.out.bits.intr.datawt
   cp0.io.intr.exceed   := mem.io.out.bits.intr.exceed
@@ -102,7 +109,7 @@ class cpu extends Module {
   cp0.io.intr.breakpt  := mem.io.out.bits.intr.breakpt
   cp0.io.intr.reserved := mem.io.out.bits.intr.reserved
   cp0.io.intr.eret     := mem.io.out.bits.intr.eret
-  cp0.io.intr.epc      := mem.io.out.bits.data.pc
+  cp0.io.intr.epc      := Mux(branch_delay, mem.io.out.bits.data.pc - 4.U, mem.io.out.bits.data.pc)
   cp0.io.intr.vaddr    := mem.io.out.bits.intr.vaddr
 
   // debug_io

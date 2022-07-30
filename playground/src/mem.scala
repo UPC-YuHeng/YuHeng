@@ -18,10 +18,6 @@ class mem extends Module {
     val flush = Input (Bool())
   })
 
-  val flush = RegInit(false.B)
-  val clear = flush | io.flush
-  flush := ~io.rout.valid & clear
-
   val in  = io.in
   val out = io.out
 
@@ -29,22 +25,24 @@ class mem extends Module {
   val bout = RegInit(Reg(new bout_data()))
 
   val datard = MuxCase(bout.bits.intr.datard, Array(
-    clear                   -> false.B,
-    (in.valid & in.ready)   -> (in.bits.contr.mem_read & MuxLookup(in.bits.contr.mem_mask, false.B, Array(
-      2.U -> in.bits.data.dest(0),
-      3.U -> in.bits.data.dest(1, 0).orR
-    ))),
-    (out.valid & out.ready) -> false.B
+    bin.ready -> (bin.bits.contr.mem_read & MuxLookup(bin.bits.contr.mem_mask, false.B, Array(
+      2.U -> bin.bits.data.dest(0),
+      3.U -> bin.bits.data.dest(1, 0).orR
+    )))
   ))
   val datawt  = MuxCase(bout.bits.intr.datawt, Array(
-    clear                   -> false.B,
-    (in.valid & in.ready)   -> (in.bits.contr.mem_write & MuxLookup(in.bits.contr.mem_mask, false.B, Array(
-      2.U -> in.bits.data.dest(0),
-      3.U -> in.bits.data.dest(1, 0).orR
-    ))),
-    (out.valid & out.ready) -> false.B
+    bin.ready -> (bin.bits.contr.mem_write & MuxLookup(bin.bits.contr.mem_mask, false.B, Array(
+      2.U -> bin.bits.data.dest(0),
+      3.U -> bin.bits.data.dest(1, 0).orR
+    )))
   ))
-  val mem_en = bin.bits.contr.mem_read | bin.bits.contr.mem_write
+
+  val mem_en = (bin.bits.contr.mem_read | bin.bits.contr.mem_write) & ~(datard | datawt)
+
+  val flush = RegInit(false.B)
+  val clear = flush | io.flush
+  flush := ~io.rout.valid & ~(bin.ready & ~mem_en) & clear
+
   val intr   = datard | datawt
   val valid  = io.rout.valid | bout.valid
 
@@ -60,7 +58,7 @@ class mem extends Module {
     (out.valid & out.ready) -> Reg(new mem_in())
   ))
 
-  io.rin.en    := bin.ready & mem_en & ~valid & ~intr
+  io.rin.en    := bin.ready & mem_en & ~valid
   io.rin.wen   := Mux(bin.bits.contr.mem_write,
     MuxLookup(bin.bits.contr.mem_mask, 0.U, Array(
       1.U -> MuxLookup(bin.bits.data.dest(1, 0), 0.U, Array(
@@ -190,9 +188,9 @@ class mem extends Module {
   mem_conf1.rs := in.bits.conf.rs
   mem_conf1.rt := in.bits.conf.rt
   mem_conf1.rd := Mux(in.bits.contr.reg_write, in.bits.conf.rd, 0.U)
-  mem_conf2.rs := bin.bits.conf.rs
-  mem_conf2.rt := bin.bits.conf.rt
-  mem_conf2.rd := Mux(bin.bits.contr.reg_write, bin.bits.conf.rd, 0.U)
+  mem_conf2.rs := bout.bits.conf1.rs
+  mem_conf2.rt := bout.bits.conf1.rt
+  mem_conf2.rd := Mux(bin.bits.contr.reg_write, bout.bits.conf1.rd, 0.U)
 
 /****************************** intr ******************************/
   mem_intr.instrd   := bin.bits.intr.instrd
