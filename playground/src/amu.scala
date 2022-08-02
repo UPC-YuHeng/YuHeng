@@ -20,7 +20,7 @@ class amu extends Module {
     in.contr.jump   -> in.contr.jaddr,
     out.ready       -> (pc + 4.U)
   ))
-  pre_pc := Mux(out.ready, pc, pre_pc)
+  pre_pc := out.bits.data.addr
 
   out.valid := true.B
   out.bits.data.addr := MuxCase(pre_pc, Array(
