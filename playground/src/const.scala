@@ -345,3 +345,25 @@ class debug_io extends Bundle {
   val rf_wnum  = UInt(5.W)
   val rf_wdata = UInt(32.W)
 }
+
+/******************* Cache ********************/
+
+class axi_in extends Bundle{
+  val rd_rdy    = Bool()
+  val rd_valid  = Bool()
+  val ret_last  = Bool()
+  val ret_rdata = UInt(32.W)
+
+  val wr_rdy    = Bool()
+}
+
+class axi_out extends Bundle{
+  val rd_req    =  Bool()
+  val rd_len    =  UInt(5.W)
+  val rd_addr   =  UInt(32.W)
+  val wr_req    =  Bool()
+  val wr_len    =  UInt(5.W)
+  val wr_addr   =  UInt(32.W)
+  val wr_wstrb  =  UInt(4.W)
+  val wr_data   =  UInt(256.W)
+}
