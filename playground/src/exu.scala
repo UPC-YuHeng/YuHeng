@@ -28,7 +28,9 @@ class exu extends Module {
     (out.valid & out.ready) -> false.B
   ))
 
-  val alu = Module(new alu())
+  val alu     = Module(new alu())
+  alu.io.flush     := clear
+  alu.io.in.valid  := in.valid & in.ready
   alu.io.in.alu_op := in.bits.contr.alu_op
   alu.io.in.srca   := in.bits.data.srca
   alu.io.in.srcb   := in.bits.data.srcb
@@ -50,15 +52,9 @@ class exu extends Module {
     0xf.U -> (~alu.io.out.signs).asBool(),
   ))
 
-  val exu_data  = Wire(new mem_info())
   val exu_contr = Wire(new inst_contr())
   val exu_conf  = Wire(new conflict_data())
   val exu_intr  = Wire(new inst_intr())
-  buf.bits.data := MuxCase(buf.bits.data, Array(
-    clear                   -> RegInit(Reg(new mem_info())),
-    (in.valid & in.ready)   -> exu_data,
-    (out.valid & out.ready) -> RegInit(Reg(new mem_info()))
-  ))
   buf.bits.contr := MuxCase(buf.bits.contr, Array(
     clear                   -> RegInit(Reg(new inst_contr())),
     (in.valid & in.ready)   -> exu_contr,
@@ -77,7 +73,8 @@ class exu extends Module {
 
   buf.valid := MuxCase(buf.valid, Array(
     clear                   -> false.B,
-    (in.valid & in.ready)   -> true.B,
+    alu.io.out.valid        -> true.B,
+    (in.valid & in.ready)   -> false.B,
     (out.valid & out.ready) -> false.B
   ))
 
@@ -86,11 +83,33 @@ class exu extends Module {
   io.cmp    := compare
 
 /****************************** data ******************************/
-  exu_data.pc   := in.bits.data.pc
-  exu_data.dest := Mux(in.bits.contr.cmp === 0.U, alu.io.out.dest, compare.asUInt())
-  exu_data.data := in.bits.data.data
-  exu_data.hi   := Mux(in.bits.contr.hilo_src, in.bits.data.srca, alu.io.out.dest_hi)
-  exu_data.lo   := Mux(in.bits.contr.hilo_src, in.bits.data.srca, alu.io.out.dest_lo)
+  buf.bits.data.pc := MuxCase(buf.bits.data.pc, Array(
+    clear                   -> 0.U,
+    (in.valid & in.ready)   -> in.bits.data.pc,
+    (out.valid & out.ready) -> 0.U
+  ))
+  buf.bits.data.dest := MuxCase(buf.bits.data.dest, Array(
+    clear                   -> 0.U,
+    (in.valid & in.ready)   -> Mux(in.bits.contr.cmp === 0.U, alu.io.out.dest, compare.asUInt()),
+    (out.valid & out.ready) -> 0.U
+  )) 
+  buf.bits.data.data := MuxCase(buf.bits.data.data, Array(
+    clear                   -> 0.U,
+    (in.valid & in.ready)   -> in.bits.data.data,
+    (out.valid & out.ready) -> 0.U
+  ))
+  buf.bits.data.hi := MuxCase(buf.bits.data.hi, Array(
+    clear                   -> 0.U,
+    (in.valid & in.ready)   -> in.bits.data.srca,
+    alu.io.out.valid        -> alu.io.out.dest_hi,      // for divs/divu, cause it has delay
+    (out.valid & out.ready) -> 0.U
+  ))
+  buf.bits.data.lo := MuxCase(buf.bits.data.lo, Array(
+    clear                   -> 0.U,
+    (in.valid & in.ready)   -> in.bits.data.srca,
+    alu.io.out.valid        -> alu.io.out.dest_lo,      // for divs/divu, cause it has delay
+    (out.valid & out.ready) -> 0.U
+  ))
 
 /****************************** contr ******************************/
   exu_contr.alu_op    := false.B
