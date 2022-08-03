@@ -80,12 +80,11 @@ class mmu extends Module{
   val axi    = Module(new axi())
   val icache = Module(new icache())
   val dcache = Module(new dcache())
-
-  val i_ucache = ((io.inst_sram.addr(31, 28) === 10.U) | (io.inst_sram.addr(31, 28) === 11.U))
-  val d_ucache = ((io.data_sram.addr(31, 28) === 10.U) | (io.data_sram.addr(31, 28) === 11.U))
-
   val tlb_i = Module(new tlb())
   val tlb_d = Module(new tlb())
+
+  val i_ucache = ((io.inst_sram.addr(31, 28) === "ha".U) | (io.inst_sram.addr(31, 28) === "hb".U))
+  val d_ucache = ((io.data_sram.addr(31, 28) === "ha".U) | (io.data_sram.addr(31, 28) === "hb".U))
 
   tlb_i.io.in.addr := io.inst_sram.addr
   tlb_d.io.in.addr := io.data_sram.addr
@@ -93,7 +92,7 @@ class mmu extends Module{
   icache.io.cin.ucache := i_ucache
   icache.io.cin.valid  := io.inst_sram.en
   icache.io.cin.op     := false.B
-  icache.io.cin.index  := tlb_i.io.out.addr(12, 5)
+  icache.io.cin.index  := tlb_i.io.out.addr(11, 5)
   icache.io.cin.tag    := tlb_i.io.out.addr(31, 12)
   icache.io.cin.offset := tlb_i.io.out.addr(4, 0)
   icache.io.cin.wstrb  := 0.U
@@ -105,7 +104,7 @@ class mmu extends Module{
   dcache.io.cin.ucache := d_ucache
   dcache.io.cin.valid  := io.data_sram.en
   dcache.io.cin.op     := (io.data_sram.wen =/= 0.U)
-  dcache.io.cin.index  := tlb_d.io.out.addr(12, 5)
+  dcache.io.cin.index  := tlb_d.io.out.addr(11, 5)
   dcache.io.cin.tag    := tlb_d.io.out.addr(31, 12)
   dcache.io.cin.offset := tlb_d.io.out.addr(4, 0)
   dcache.io.cin.wstrb  := io.data_sram.wen
@@ -116,16 +115,17 @@ class mmu extends Module{
 
   icache.io.ain.rd_rdy := axi.io.data_out.arready & (~dcache.io.aout.rd_req) & icache.io.aout.rd_req
   dcache.io.ain.rd_rdy := axi.io.data_out.arready & dcache.io.aout.rd_req
+  icache.io.ain.wr_rdy := false.B
   dcache.io.ain.wr_rdy := axi.io.data_out.awready
 
   val axi_sram = MuxCase(Reg(new axi_out()), Array(
-    icache.io.ain.rd_rdy -> icache.io.aout,
-    dcache.io.ain.rd_rdy -> dcache.io.aout
+    dcache.io.ain.rd_rdy -> dcache.io.aout,
+    icache.io.ain.rd_rdy -> icache.io.aout
   ))
 
   axi.io.data_in.arid    := MuxCase(0.U, Array(
-    icache.io.ain.rd_rdy -> 1.U,
-    dcache.io.ain.rd_rdy -> 2.U
+    dcache.io.ain.rd_rdy -> 2.U,
+    icache.io.ain.rd_rdy -> 1.U
   ))
 
   axi.io.data_in.araddr  := axi_sram.rd_addr
@@ -139,16 +139,18 @@ class mmu extends Module{
   axi.io.data_in.wen     := dcache.io.aout.wr_wstrb
   axi.io.data_in.wdata   := dcache.io.aout.wr_data
   
-  icache.io.ain.wr_rdy   := false.B
   icache.io.ain.ret_last := (axi.io.data_out.rid === 1.U & axi.io.data_out.rlast)
   dcache.io.ain.ret_last := (axi.io.data_out.rid === 2.U & axi.io.data_out.rlast)
 
   icache.io.ain.rd_valid := (axi.io.data_out.rid === 1.U & axi.io.data_out.rready)
   dcache.io.ain.rd_valid := (axi.io.data_out.rid === 2.U & axi.io.data_out.rready)
   
-  icache.io.ain.ret_rdata := Mux(axi.io.data_out.rid === "b0001".U & axi.io.data_out.rready, axi.io.data_out.rdata, 0.U(32.W))
-  dcache.io.ain.ret_rdata := Mux(axi.io.data_out.rid === "b0010".U & axi.io.data_out.rready, axi.io.data_out.rdata, 0.U(32.W))
+  icache.io.ain.ret_rdata := Mux(axi.io.data_out.rid === 1.U & axi.io.data_out.rready, axi.io.data_out.rdata, 0.U(32.W))
+  dcache.io.ain.ret_rdata := Mux(axi.io.data_out.rid === 2.U & axi.io.data_out.rready, axi.io.data_out.rdata, 0.U(32.W))
 
+  icache.io.ain.wr_valid := axi.io.data_out.wready
+  dcache.io.ain.wr_valid := axi.io.data_out.wready
+  
   axi.io.in := io.in
   io.out    := axi.io.out
 }

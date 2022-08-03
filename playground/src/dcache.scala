@@ -33,19 +33,18 @@ class dcache extends Module {
   val way0_bank = VecInit(Seq.fill(8)(Module(new sram_128_32()).io))
   val way1_bank = VecInit(Seq.fill(8)(Module(new sram_128_32()).io))
 
-  val idle :: lookup1 :: lookup2 :: miss :: replace1 :: replace2 :: refill :: pass :: pass_wait :: nulls = Enum(10)
+  val idle :: lookup1 :: lookup2 :: miss :: replace1 :: replace1_wait :: replace2 :: refill :: refill_end :: pass :: pass_wait :: nulls = Enum(13)
   
   val cstate       = RegInit(idle)
   val rbuf         = RegInit(Reg(new cpu_in()))
   val reg_paddr    = RegInit(0.U(32.W))
   val reg_rbuf_num = RegInit(0.U(4.W))
 
-  val cvalid = RegInit(false.B)
-  val wready = RegInit(false.B)
   val reg_rdata    = RegInit(0.U(32.W))
 
   val tag0 = RegInit(0.U(21.W))
   val tag1 = RegInit(0.U(21.W))
+  
   tagv0.clka   := clock
   tagv0.ena    := false.B
   tagv0.wea    := false.B
@@ -184,20 +183,25 @@ class dcache extends Module {
     }
     is(replace1)
     {
-      val data_out0 = Cat(way0_bank(0).douta, way0_bank(1).douta, way0_bank(2).douta, way0_bank(3).douta, way0_bank(4).douta, way0_bank(5).douta, way0_bank(6).douta, way0_bank(7).douta)
-      val data_out1 = Cat(way1_bank(0).douta, way1_bank(1).douta, way1_bank(2).douta, way1_bank(3).douta, way1_bank(4).douta, way1_bank(5).douta, way1_bank(6).douta, way1_bank(7).douta)
+      val data_out0 = Cat(way0_bank(7).douta, way0_bank(6).douta, way0_bank(5).douta, way0_bank(4).douta, way0_bank(3).douta, way0_bank(2).douta, way0_bank(1).douta, way0_bank(0).douta)
+      val data_out1 = Cat(way1_bank(7).douta, way1_bank(6).douta, way1_bank(5).douta, way1_bank(4).douta, way1_bank(3).douta, way1_bank(2).douta, way1_bank(1).douta, way1_bank(0).douta)
       val req = Mux(lru(rbuf.index).asBool() , dir1(rbuf.index), dir0(rbuf.index))
       when(~req.asBool()) {
         cstate := replace2
       }.otherwise {
+        io.aout.wr_req := true.B
         when(io.ain.wr_rdy) {
-          io.aout.wr_req   := true.B
           io.aout.wr_len   := 7.U
-          io.aout.wr_wstrb := 15.U
-          io.aout.wr_addr  := Cat(Mux(lru(rbuf.index).asBool() , tag1, tag0), rbuf.index, "b00000".U(5.W))
-          io.aout.wr_data  := Mux(lru(rbuf.index).asBool() , data_out1, data_out0)
-          cstate := replace2
+          io.aout.wr_wstrb := "hf".U
+          io.aout.wr_addr  := Cat(Mux(lru(rbuf.index).asBool(), tag1(20, 1), tag0(20, 1)), rbuf.index, 0.U(5.W))
+          io.aout.wr_data  := Mux(lru(rbuf.index).asBool(), data_out1, data_out0)
+          cstate := replace1_wait
         }
+      }
+    }
+    is(replace1_wait) {
+      when(io.ain.wr_valid) {
+        cstate := replace2
       }
     }
     is(replace2) {
@@ -246,44 +250,44 @@ class dcache extends Module {
         when(io.ain.ret_last.asBool()){
           lru(rbuf.index) := ~lru(rbuf.index)
           when(~rbuf.op) {
-            io.cout.rdata   := reg_rdata
-            io.cout.data_ok := true.B
-            cstate := idle
+            cstate := refill_end
           }.otherwise {
             cstate := lookup1
           }
         }
       }
     }
+    is(refill_end)
+    {
+      io.cout.rdata   := reg_rdata
+      io.cout.data_ok := true.B
+      cstate := idle
+    }
     is(pass) 
     {
       io.aout.rd_req  := ~rbuf.op
       io.aout.wr_req  := rbuf.op
-      when(io.ain.rd_rdy){
-        when(~rbuf.op) {
-          io.aout.rd_addr := reg_paddr
-          io.aout.rd_len  := 0.U
-          cstate         := pass_wait
-        }
-      }.elsewhen(io.ain.wr_rdy) {
-        when(rbuf.op) {
-          io.aout.wr_addr  := reg_paddr
-          io.aout.wr_len   := 0.U
-          io.aout.wr_data  := rbuf.wdata
-          io.aout.wr_wstrb := rbuf.wstrb
-          cstate           := pass_wait
-        }
+      when((~rbuf.op) & io.ain.rd_rdy) {
+        io.aout.rd_addr := reg_paddr
+        io.aout.rd_len  := 0.U
+        cstate         := pass_wait
+      }
+      when(rbuf.op & io.ain.wr_rdy) {
+        io.aout.wr_addr  := reg_paddr
+        io.aout.wr_len   := 0.U
+        io.aout.wr_data  := Cat(0.U(224.W), rbuf.wdata)
+        io.aout.wr_wstrb := rbuf.wstrb
+        cstate           := pass_wait
       }
     }
     is(pass_wait)
     {
-      when(~rbuf.op) {
-        when(io.ain.rd_valid) {
-          io.cout.data_ok := true.B
-          io.cout.rdata   := io.ain.ret_rdata
-          cstate          := idle
-        }
-      }.otherwise {
+      when((~rbuf.op) & io.ain.rd_valid) {
+        io.cout.data_ok := true.B
+        io.cout.rdata   := io.ain.ret_rdata
+        cstate          := idle
+      }
+      when(rbuf.op & io.ain.wr_valid) {
         io.cout.data_ok := true.B
         cstate          := idle
       }

@@ -354,6 +354,7 @@ class axi_in extends Bundle{
   val ret_last  = Bool()
   val ret_rdata = UInt(32.W)
 
+  val wr_valid  = Bool()
   val wr_rdy    = Bool()
 }
 

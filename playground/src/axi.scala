@@ -9,9 +9,9 @@ class axi extends Module {
     val awid    = UInt(4.W)
     val awaddr  = UInt(32.W)
     val awvalid = Bool()
-    val rlen    = UInt(5.W)
+    val rlen    = UInt(8.W)
     val wdata   = UInt(256.W)
-    val wlen    = UInt(5.W)
+    val wlen    = UInt(8.W)
     val wen     = UInt(4.W)
   }
   class data_out extends Bundle{
@@ -20,7 +20,7 @@ class axi extends Module {
     val rid     = UInt(4.W)
     val rready  = Bool()
     val rlast   = Bool()
-    val rdata   = UInt(32.W)  
+    val rdata   = UInt(32.W)
     val wready  = Bool()
   }
   val io = IO (new Bundle {
@@ -36,9 +36,11 @@ class axi extends Module {
   val rstate        = RegInit(ridle)
   val wstate        = RegInit(widle)
 
-  val reg_write_num = RegInit(0.U(5.W))
+  val reg_write_num = RegInit(0.U(8.W))
+  val reg_read_num  = RegInit(0.U(8.W))
   val reg_wdata     = RegInit(VecInit(Seq.fill(8)(0.U(32.W))))
-  val reg_wlen      = RegInit(0.U(5.W))
+  val reg_wlen      = RegInit(0.U(8.W))
+  val reg_rlen      = RegInit(0.U(8.W))
   val reg_wen       = RegInit(0.U(4.W))
  
   io.data_out.arready := (rstate === ridle)
@@ -58,6 +60,7 @@ class axi extends Module {
         reg_out.arvalid  := true.B
         reg_out.arid     := io.data_in.arid
         reg_out.arlen    := io.data_in.rlen
+        reg_rlen         := io.data_in.rlen
         rstate           := sdraddr
       }
     }
@@ -65,6 +68,7 @@ class axi extends Module {
       when(io.in.arready)
       {
         reg_out.arvalid := false.B
+        reg_read_num    := 0.U
         rstate          := rddata 
       }
     }
@@ -76,9 +80,10 @@ class axi extends Module {
         io.data_out.rready := true.B
         io.data_out.rid    := io.in.rid
         io.data_out.rdata  := io.in.rdata
-        when(io.in.rlast)
+        reg_read_num       := reg_read_num + 1.U
+        when(io.in.rlast | reg_read_num === reg_rlen)
         {
-          reg_out.rready     := false.B
+          reg_out.rready    := false.B
           io.data_out.rlast := true.B
           rstate := ridle
         }
@@ -90,7 +95,6 @@ class axi extends Module {
   {
     is(widle)
     {
-      io.data_out.wready := true.B
       when(io.data_in.awvalid === true.B)
       {
         reg_out.awvalid    := true.B
@@ -124,7 +128,7 @@ class axi extends Module {
       when(io.in.wready)
       {
         when(reg_write_num === reg_wlen) {
-          wstate         := wrend
+          wstate       := wrend
         }
         reg_write_num  := reg_write_num + 1.U
       }
@@ -136,8 +140,9 @@ class axi extends Module {
       reg_out.wvalid := false.B
       when(io.in.bvalid)
       {
-        reg_out.bready := false.B
-        wstate         := widle
+        io.data_out.wready := true.B
+        reg_out.bready     := false.B
+        wstate             := widle
       }
     }
   }
@@ -154,5 +159,5 @@ class axi extends Module {
   reg_out.awprot  := "b000".U 
   reg_out.awsize  := "b010".U
 
-  io.out      := reg_out
+  io.out          := reg_out
 }

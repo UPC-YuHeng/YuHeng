@@ -33,11 +33,11 @@ class icache extends Module {
   val way0_bank = VecInit(Seq.fill(8)(Module(new sram_128_32()).io))
   val way1_bank = VecInit(Seq.fill(8)(Module(new sram_128_32()).io))
 
-  val idle :: lookup1 :: lookup2 :: miss :: replace :: refill :: pass :: pass_wait :: nulls = Enum(9)
+  val idle :: lookup1 :: lookup2 :: miss :: replace :: refill :: pass :: pass_wait :: nulls = Enum(10)
   val cstate       = RegInit(idle)
   val rbuf         = RegInit(Reg(new cpu_in))
   val reg_paddr    = RegInit(0.U(32.W))
-  val reg_rbuf_num = RegInit(0.U(4.W))
+  val reg_rbuf_num = RegInit(0.U(8.W))
   val reg_rdata    = RegInit(0.U(32.W))
 
   tagv0.clka   := clock
@@ -71,10 +71,10 @@ class icache extends Module {
   io.cout.rdata   := 0.U
 
   io.aout.rd_req   := false.B
-  io.aout.rd_len  := 0.U
+  io.aout.rd_len   := 0.U
   io.aout.rd_addr  := 0.U
   io.aout.wr_req   := false.B
-  io.aout.wr_len  := 0.U
+  io.aout.wr_len   := 0.U
   io.aout.wr_addr  := 0.U
   io.aout.wr_wstrb := 0.U
   io.aout.wr_data  := 0.U
@@ -82,7 +82,7 @@ class icache extends Module {
   switch(cstate){
     is(idle){
       when(io.cin.valid & ~io.cin.op){
-        rbuf            := io.cin
+        rbuf     := io.cin
         when(~io.cin.ucache) {
           cstate := lookup1
         }.otherwise {
