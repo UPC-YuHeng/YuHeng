@@ -49,7 +49,8 @@ class alu extends Module {
     alu_or    -> (a | b),
     alu_sftrs -> ((a.asSInt() >> b(4, 0)).asUInt()),
     alu_sftru -> (a >> b(4,0)),
-    alu_sftl  -> (a << b(4,0))
+    alu_sftl  -> (a << b(4,0)),
+    alu_mults -> mult.io.out.l
   ))
   io.out.exceed := MuxLookup(io.in.alu_op, 0.U, Array(
     alu_adds  -> ((Cat(a(31), a) + Cat(b(31), b))(32) =/= (Cat(a(31), a) + Cat(b(31), b))(31)),

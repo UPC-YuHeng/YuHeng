@@ -29,7 +29,8 @@ class axi extends Module {
     val in        = Input(new master_in())
     val out       = Output(new master_out())
   })
-  val reg_out = RegInit(Reg(new master_out))
+  val rbuf = RegInit(Reg(new data_in()))
+  val wbuf = RegInit(Reg(new data_in()))
   
   val ridle :: sdraddr :: rddata :: nullr = Enum(4)
   val widle :: sdwaddr :: wrdata :: wrend :: nullw = Enum(5)
@@ -39,9 +40,6 @@ class axi extends Module {
   val reg_write_num = RegInit(0.U(8.W))
   val reg_read_num  = RegInit(0.U(8.W))
   val reg_wdata     = RegInit(VecInit(Seq.fill(8)(0.U(32.W))))
-  val reg_wlen      = RegInit(0.U(8.W))
-  val reg_rlen      = RegInit(0.U(8.W))
-  val reg_wen       = RegInit(0.U(4.W))
  
   io.data_out.arready := (rstate === ridle)
   io.data_out.awready := (wstate === widle)
@@ -51,39 +49,67 @@ class axi extends Module {
   io.data_out.rdata   := 0.U
   io.data_out.rlast   := false.B
 
+  io.out.arid    := 0.U
+  io.out.araddr  := 0.U
+  io.out.arlen   := 0.U
+  io.out.arsize  := 0.U
+  io.out.arburst := 0.U
+  io.out.arlock  := 0.U
+  io.out.arcache := 0.U
+  io.out.arprot  := 0.U
+  io.out.arvalid := false.B
+
+  io.out.rready  := false.B
+
+  io.out.awid    := 0.U
+  io.out.awaddr  := 0.U
+  io.out.awlen   := 0.U
+  io.out.awsize  := 0.U
+  io.out.awburst := 0.U
+  io.out.awlock  := 0.U
+  io.out.awcache := 0.U
+  io.out.awprot  := 0.U
+  io.out.awvalid := false.B
+
+  io.out.wid     := 0.U
+  io.out.wdata   := 0.U
+  io.out.wstrb   := 0.U
+  io.out.wlast   := false.B
+  io.out.wvalid  := false.B
+
+  io.out.bready  := false.B
+  
   switch(rstate){
     is(ridle)
     {
       when(io.data_in.arvalid === true.B)
-      {
-        reg_out.araddr   := io.data_in.araddr
-        reg_out.arvalid  := true.B
-        reg_out.arid     := io.data_in.arid
-        reg_out.arlen    := io.data_in.rlen
-        reg_rlen         := io.data_in.rlen
-        rstate           := sdraddr
+      { 
+        rbuf   := io.data_in
+        rstate := sdraddr
       }
     }
     is(sdraddr){
+      io.out.arvalid  := true.B
+      io.out.araddr   := rbuf.araddr
+      io.out.arid     := rbuf.arid
+      io.out.arlen    := rbuf.rlen
       when(io.in.arready)
       {
-        reg_out.arvalid := false.B
         reg_read_num    := 0.U
         rstate          := rddata 
       }
     }
     is(rddata)
     {
-      reg_out.rready := true.B
+      io.out.rready := true.B
       when(io.in.rvalid)
       {
         io.data_out.rready := true.B
         io.data_out.rid    := io.in.rid
         io.data_out.rdata  := io.in.rdata
         reg_read_num       := reg_read_num + 1.U
-        when(io.in.rlast | reg_read_num === reg_rlen)
+        when(io.in.rlast | reg_read_num === rbuf.rlen)
         {
-          reg_out.rready    := false.B
           io.data_out.rlast := true.B
           rstate := ridle
         }
@@ -97,12 +123,7 @@ class axi extends Module {
     {
       when(io.data_in.awvalid === true.B)
       {
-        reg_out.awvalid    := true.B
-        reg_out.awaddr     := io.data_in.awaddr
-        reg_out.awid       := io.data_in.awid
-        reg_out.awlen      := io.data_in.wlen
-        reg_wlen           := io.data_in.wlen
-        reg_wen            := io.data_in.wen
+        wbuf := io.data_in
         for(i <- 0 to 7) {
           reg_wdata(i) := io.data_in.wdata(i * 32 + 31, i * 32);
         }
@@ -111,23 +132,26 @@ class axi extends Module {
     }
     is(sdwaddr)
     {
+      io.out.awvalid := true.B
+      io.out.awaddr  := wbuf.awaddr
+      io.out.awid    := wbuf.awid
+      io.out.awlen   := wbuf.wlen
       when(io.in.awready)
       {
-        reg_out.awvalid := false.B
         reg_write_num   := 0.U
         wstate          := wrdata
       }
     }
     is(wrdata)
     {
-      reg_out.wvalid := true.B
-      reg_out.wlast  := (reg_write_num === reg_wlen)
-      reg_out.wdata  := reg_wdata(reg_write_num)
-      reg_out.wid    := reg_out.awid
-      reg_out.wstrb  := reg_wen
+      io.out.wvalid := true.B
+      io.out.wlast  := (reg_write_num === wbuf.wlen)
+      io.out.wdata  := reg_wdata(reg_write_num)
+      io.out.wid    := wbuf.awid
+      io.out.wstrb  := wbuf.wen
       when(io.in.wready)
       {
-        when(reg_write_num === reg_wlen) {
+        when(reg_write_num === wbuf.wlen) {
           wstate       := wrend
         }
         reg_write_num  := reg_write_num + 1.U
@@ -135,29 +159,24 @@ class axi extends Module {
     }
     is(wrend)
     {
-      reg_out.wlast  := false.B
-      reg_out.bready := true.B
-      reg_out.wvalid := false.B
+      io.out.bready := true.B
       when(io.in.bvalid)
       {
         io.data_out.wready := true.B
-        reg_out.bready     := false.B
         wstate             := widle
       }
     }
   }
 
-  reg_out.arburst := "b01".U
-  reg_out.arlock  := "b00".U
-  reg_out.arcache := "b0000".U
-  reg_out.arprot  := "b000".U
-  reg_out.arsize  := "b010".U
+  io.out.arburst := "b01".U
+  io.out.arlock  := "b00".U
+  io.out.arcache := "b0000".U
+  io.out.arprot  := "b000".U
+  io.out.arsize  := "b010".U
 
-  reg_out.awburst := "b01".U 
-  reg_out.awlock  := "b00".U 
-  reg_out.awcache := "b0000".U 
-  reg_out.awprot  := "b000".U 
-  reg_out.awsize  := "b010".U
-
-  io.out          := reg_out
+  io.out.awburst := "b01".U
+  io.out.awlock  := "b00".U
+  io.out.awcache := "b0000".U
+  io.out.awprot  := "b000".U
+  io.out.awsize  := "b010".U
 }

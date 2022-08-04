@@ -33,7 +33,7 @@ class icache extends Module {
   val way0_bank = VecInit(Seq.fill(8)(Module(new sram_128_32()).io))
   val way1_bank = VecInit(Seq.fill(8)(Module(new sram_128_32()).io))
 
-  val idle :: lookup1 :: lookup2 :: miss :: replace :: refill :: pass :: pass_wait :: nulls = Enum(10)
+  val idle :: lookup :: miss :: replace :: refill :: pass :: pass_wait :: nulls = Enum(8)
   val cstate       = RegInit(idle)
   val rbuf         = RegInit(Reg(new cpu_in))
   val reg_paddr    = RegInit(0.U(32.W))
@@ -41,12 +41,14 @@ class icache extends Module {
   val reg_rdata    = RegInit(0.U(32.W))
 
   tagv0.clka   := clock
+  // tagv0.rst    := reset
   tagv0.ena    := false.B
   tagv0.wea    := false.B
   tagv0.addra  := 0.U
   tagv0.dina   := 0.U
-
+  
   tagv1.clka   := clock
+  // tagv1.rst    := reset
   tagv1.ena    := false.B
   tagv1.wea    := false.B
   tagv1.addra  := 0.U
@@ -54,12 +56,14 @@ class icache extends Module {
 
   for(i <- 0 to 7) {
     way0_bank(i).clka   := clock
+    // way0_bank(i).rst    := reset
     way0_bank(i).ena    := false.B
     way0_bank(i).wea    := false.B
     way0_bank(i).addra  := 0.U
     way0_bank(i).dina   := 0.U
 
     way1_bank(i).clka   := clock
+    // way1_bank(i).rst    := reset
     way1_bank(i).ena    := false.B
     way1_bank(i).wea    := false.B
     way1_bank(i).addra  := 0.U
@@ -84,7 +88,20 @@ class icache extends Module {
       when(io.cin.valid & ~io.cin.op){
         rbuf     := io.cin
         when(~io.cin.ucache) {
-          cstate := lookup1
+          tagv0.addra := io.cin.index
+          tagv1.addra := io.cin.index
+          tagv0.ena   := true.B
+          tagv1.ena   := true.B
+          tagv0.wea   := false.B
+          tagv1.wea   := false.B
+
+          way0_bank(io.cin.offset(4,2)).addra := io.cin.index
+          way1_bank(io.cin.offset(4,2)).addra := io.cin.index
+          way0_bank(io.cin.offset(4,2)).ena   := true.B
+          way1_bank(io.cin.offset(4,2)).ena   := true.B
+          way0_bank(io.cin.offset(4,2)).wea   := false.B
+          way1_bank(io.cin.offset(4,2)).wea   := false.B
+          cstate := lookup
         }.otherwise {
           cstate := pass
         }
@@ -92,24 +109,7 @@ class icache extends Module {
         io.cout.addr_ok := true.B
       }
     }
-    is(lookup1){
-      tagv0.addra := rbuf.index
-      tagv1.addra := rbuf.index
-      tagv0.ena   := true.B
-      tagv1.ena   := true.B
-      tagv0.wea   := false.B
-      tagv1.wea   := false.B
-
-      way0_bank(rbuf.offset(4,2)).addra := rbuf.index
-      way1_bank(rbuf.offset(4,2)).addra := rbuf.index
-      way0_bank(rbuf.offset(4,2)).ena   := true.B
-      way1_bank(rbuf.offset(4,2)).ena   := true.B
-      way0_bank(rbuf.offset(4,2)).wea   := false.B
-      way1_bank(rbuf.offset(4,2)).wea   := false.B
-
-      cstate := lookup2
-    }
-    is(lookup2){
+    is(lookup){
       val data0 = way0_bank(rbuf.offset(4,2)).douta
       val data1 = way1_bank(rbuf.offset(4,2)).douta
 
@@ -145,7 +145,7 @@ class icache extends Module {
           tagv1.wea    := true.B
           tagv1.dina   := Cat(reg_paddr(31, 12), "b1".U(1.W))
         }
-        cstate          := replace
+        cstate         := replace
       }
     }
     is(replace)
@@ -187,7 +187,7 @@ class icache extends Module {
       when(io.ain.rd_rdy) {
         io.aout.rd_addr := reg_paddr
         io.aout.rd_len  := 0.U
-        cstate         := pass_wait
+        cstate          := pass_wait
       }
     }
     is(pass_wait)

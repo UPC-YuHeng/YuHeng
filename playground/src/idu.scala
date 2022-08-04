@@ -125,27 +125,88 @@ class idu extends Module {
     SW      -> true.B,
   ))
 
-  val reg_rs = Lookup(inst, rs, Array(
+  val reg_rs = Lookup(inst, 0.U, Array(
+    ADD     -> rs,
+    ADDI    -> rs,
+    ADDU    -> rs,
+    ADDIU   -> rs,
+    SUB     -> rs,
+    SUBU    -> rs,
+    SLT     -> rs,
+    SLTI    -> rs,
+    SLTU    -> rs,
+    SLTIU   -> rs,
+    DIV     -> rs,
+    DIVU    -> rs,
+    MULT    -> rs,
+    MULTU   -> rs,
+    AND     -> rs,
+    ANDI    -> rs,
+    NOR     -> rs,
+    OR      -> rs,
+    ORI     -> rs,
+    XOR     -> rs,
+    XORI    -> rs,
     SLLV    -> rt,
-    SRAV    -> rt,
-    SRLV    -> rt,
     SLL     -> rt,
+    SRAV    -> rt,
     SRA     -> rt,
+    SRLV    -> rt,
     SRL     -> rt,
+    BEQ     -> rs,
+    BNE     -> rs,
+    BGEZ    -> rs,
+    BGTZ    -> rs,
+    BLEZ    -> rs,
+    BLTZ    -> rs,
+    BGEZAL  -> rs,
+    BLTZAL  -> rs,
+    JR      -> rs,
+    JALR    -> rs,
+    MTHI    -> rs,
+    MTLO    -> rs,
+    LB      -> rs,
+    LBU     -> rs,
+    LH      -> rs,
+    LHU     -> rs,
+    LW      -> rs,
+    SB      -> rs,
+    SH      -> rs,
+    SW      -> rs,
     MFC0    -> rd,
     MTC0    -> rd
   ))
-  val reg_rt = Lookup(inst, rt, Array(
+  val reg_rt = Lookup(inst, 0.U, Array(
+    ADD     -> rt,
+    ADDU    -> rt,
+    SUB     -> rt,
+    SUBU    -> rt,
+    SLT     -> rt,
+    SLTU    -> rt,
+    DIV     -> rt,
+    DIVU    -> rt,
+    MULT    -> rt,
+    MULTU   -> rt,
+    AND     -> rt,
+    NOR     -> rt,
+    OR      -> rt,
+    XOR     -> rt,
     SLLV    -> rs,
     SRAV    -> rs,
     SRLV    -> rs,
+    BEQ     -> rt,
+    BNE     -> rt,
     BGEZ    -> 0.U,
     BGTZ    -> 0.U,
     BLEZ    -> 0.U,
     BLTZ    -> 0.U,
     BGEZAL  -> 0.U,
     BLTZAL  -> 0.U,
-    MFC0    -> rd
+    SB      -> rt,
+    SH      -> rt,
+    SW      -> rt,
+    MFC0    -> rd,
+    MTC0    -> rt
   ))
   val reg_rd = Lookup(inst, rd, Array(
     ADDI    -> rt,
@@ -218,7 +279,8 @@ class idu extends Module {
     LW      -> alu_adds,
     SB      -> alu_adds,
     SH      -> alu_adds,
-    SW      -> alu_adds
+    SW      -> alu_adds,
+    MUL     -> alu_mults
   ))
   idu_contr.mem_read := Lookup(inst, false.B, Array(
     LB      -> true.B,
@@ -280,7 +342,8 @@ class idu extends Module {
     LH      -> true.B,
     LHU     -> true.B,
     LW      -> true.B,
-    MFC0    -> true.B
+    MFC0    -> true.B,
+    MUL     -> true.B
   ))
   idu_contr.hi_write := Lookup(inst, false.B, Array(
     DIV     -> true.B,
@@ -362,7 +425,8 @@ class idu extends Module {
     BLTZAL  -> true.B,
     LB      -> true.B,
     LH      -> true.B,
-    LW      -> true.B
+    LW      -> true.B,
+    MUL     -> true.B
   ))
   idu_contr.cp0_read := Lookup(inst, false.B, Array(
     MFC0    -> true.B
