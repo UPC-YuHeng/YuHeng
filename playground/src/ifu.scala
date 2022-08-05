@@ -29,12 +29,12 @@ class ifu extends Module {
 
   val mem_en = ~instrd
 
-  val flush = RegInit(false.B)
-  val clear = flush | io.flush
-  flush := ~io.rout.valid & ~(bin.ready & ~mem_en) & clear
-
   val intr   = instrd
   val valid  = io.rout.valid | bout.valid
+
+  val flush = RegInit(false.B)
+  val clear = flush | io.flush
+  flush := ~valid & ~(bin.ready & ~mem_en) & clear
 
   in.ready := ~bin.ready
 

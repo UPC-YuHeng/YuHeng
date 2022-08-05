@@ -39,12 +39,12 @@ class mem extends Module {
 
   val mem_en = (bin.bits.contr.mem_read | bin.bits.contr.mem_write) & ~(datard | datawt)
 
-  val flush = RegInit(false.B)
-  val clear = flush | io.flush
-  flush := ~io.rout.valid & ~(bin.ready & ~mem_en) & clear
-
   val intr   = datard | datawt
   val valid  = io.rout.valid | bout.valid
+
+  val flush = RegInit(false.B)
+  val clear = flush | io.flush
+  flush := ~valid & ~(bin.ready & ~mem_en) & clear
 
   in.ready := ~bin.ready
 
