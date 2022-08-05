@@ -25,11 +25,46 @@ class cpu extends Module {
   val cmem1 = exu.io.out.bits.conf
   val cmem2 = mem.io.out.bits.conf1
   val creg  = mem.io.out.bits.conf2
-  val conflict_exu  = cexu.rd.orR  & (cidu.rs === cexu.rd  | cidu.rt === cexu.rd)
-  val conflict_mem1 = cmem1.rd.orR & (cidu.rs === cmem1.rd | cidu.rt === cmem1.rd)
-  val conflict_mem2 = cmem2.rd.orR & (cidu.rs === cmem2.rd | cidu.rt === cmem2.rd)
-  val conflict_reg  = creg.rd.orR  & (cidu.rs === creg.rd  | cidu.rt === creg.rd)
-  val conflict      = conflict_exu | conflict_mem1 | conflict_mem2 | conflict_reg
+  val conflict_exu_rs  = cexu.rd.orR  & cidu.rs === cexu.rd 
+  val conflict_mem1_rs = cmem1.rd.orR & cidu.rs === cmem1.rd
+  val conflict_mem2_rs = cmem2.rd.orR & cidu.rs === cmem2.rd
+  val conflict_reg_rs  = creg.rd.orR  & cidu.rs === creg.rd 
+  val conflict_rs      = MuxCase(false.B, Array(
+    conflict_exu_rs  -> true.B,
+    conflict_mem1_rs -> true.B,
+    conflict_mem2_rs -> ~cmem2.rdvalid,
+    conflict_reg_rs  -> ~creg.rdvalid,
+  ))
+
+  val conflict_exu_rt  = cexu.rd.orR  & cidu.rt === cexu.rd
+  val conflict_mem1_rt = cmem1.rd.orR & cidu.rt === cmem1.rd
+  val conflict_mem2_rt = cmem2.rd.orR & cidu.rt === cmem2.rd
+  val conflict_reg_rt  = creg.rd.orR  & cidu.rt === creg.rd
+  val conflict_rt      = MuxCase(false.B, Array(
+    conflict_exu_rt  -> true.B,
+    conflict_mem1_rt -> true.B,
+    conflict_mem2_rt -> ~cmem2.rdvalid,
+    conflict_reg_rt  -> ~creg.rdvalid,
+  ))
+
+  val conflict = conflict_rs | conflict_rt
+
+  idu.io.bypass.conflict_rs := conflict_rs
+  idu.io.bypass.conflict_rt := conflict_rt
+
+  idu.io.bypass.rsdata := MuxCase(0.U, Array(
+    conflict_exu_rs  -> 0.U,
+    conflict_mem1_rs -> 0.U,
+    conflict_mem2_rs -> Mux(cmem2.rdvalid, cmem2.rddata, 0.U),
+    conflict_reg_rs  -> Mux(creg.rdvalid,  creg.rddata,  0.U)
+  ))
+
+  idu.io.bypass.rtdata := MuxCase(0.U, Array(
+    conflict_exu_rt  -> 0.U,
+    conflict_mem1_rt -> 0.U,
+    conflict_mem2_rt -> Mux(cmem2.rdvalid, cmem2.rddata, 0.U),
+    conflict_reg_rt  -> Mux(creg.rdvalid,  creg.rddata,  0.U)
+  ))
 
   // intr
   val eint = Mux(mem.io.out.valid & reg.io.in.ready,

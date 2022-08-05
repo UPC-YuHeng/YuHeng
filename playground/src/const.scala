@@ -132,6 +132,8 @@ class conflict_data extends Bundle {
   val rs        = UInt(5.W)
   val rt        = UInt(5.W)
   val rd        = UInt(5.W)
+  val rddata    = UInt(32.W)
+  val rdvalid   = Bool()
 }
 
 /******************** intr ********************/

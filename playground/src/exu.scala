@@ -133,9 +133,11 @@ class exu extends Module {
   exu_contr.cp0_write := in.bits.contr.cp0_write
 
 /****************************** conf ******************************/
-  exu_conf.rs := in.bits.conf.rs
-  exu_conf.rt := in.bits.conf.rt
-  exu_conf.rd := Mux(in.bits.contr.reg_write, in.bits.conf.rd, 0.U)
+  exu_conf.rs      := in.bits.conf.rs
+  exu_conf.rt      := in.bits.conf.rt
+  exu_conf.rd      := Mux(in.bits.contr.reg_write, in.bits.conf.rd, 0.U)
+  exu_conf.rddata  := 0.U
+  exu_conf.rdvalid := false.B
 
 /****************************** intr ******************************/
   exu_intr.instrd   := in.bits.intr.instrd

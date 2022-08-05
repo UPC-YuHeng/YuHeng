@@ -185,13 +185,17 @@ class mem extends Module {
   mem_contr.cp0_write := bin.bits.contr.cp0_write
 
 /****************************** conf ******************************/
-  mem_conf1.rs := in.bits.conf.rs
-  mem_conf1.rt := in.bits.conf.rt
-  mem_conf1.rd := Mux(in.bits.contr.reg_write, in.bits.conf.rd, 0.U)
-  mem_conf2.rs := bout.bits.conf1.rs
-  mem_conf2.rt := bout.bits.conf1.rt
-  mem_conf2.rd := Mux(bin.bits.contr.reg_write, bout.bits.conf1.rd, 0.U)
-
+  mem_conf1.rs      := in.bits.conf.rs
+  mem_conf1.rt      := in.bits.conf.rt
+  mem_conf1.rd      := Mux(in.bits.contr.reg_write, in.bits.conf.rd, 0.U)
+  mem_conf1.rddata  := Mux(bout.valid, bout.bits.data.data, bin.bits.data.dest)
+  mem_conf1.rdvalid := ((~mem_en) | bout.valid)
+  mem_conf2.rs      := bout.bits.conf1.rs
+  mem_conf2.rt      := bout.bits.conf1.rt
+  mem_conf2.rd      := Mux(bin.bits.contr.reg_write, bout.bits.conf1.rd, 0.U)
+  mem_conf2.rddata  := Mux(bout.valid, bout.bits.data.data, bin.bits.data.dest)
+  mem_conf2.rdvalid := ((~mem_en) | bout.valid)
+  
 /****************************** intr ******************************/
   mem_intr.instrd   := bin.bits.intr.instrd
   mem_intr.datard   := datard

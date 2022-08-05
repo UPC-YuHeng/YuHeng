@@ -5,6 +5,12 @@ import InstructionList._
 import ALUOperationList._
 
 class idu extends Module {
+  class bypass extends Bundle {
+    val rsdata      = UInt(32.W)
+    val rtdata      = UInt(32.W)
+    val conflict_rs = Bool()
+    val conflict_rt = Bool()
+  }
   class buf_data extends Bundle {
     val ready = Bool()
     val valid = Bool()
@@ -16,6 +22,7 @@ class idu extends Module {
     val regin  = Output(new regread_in())
     val regout = Input (new regread_out())
     val conf   = Output(new conflict_data())
+    val bypass = Input (new bypass())
     val lock   = Input (Bool())
     val flush  = Input (Bool())
   })
@@ -230,9 +237,9 @@ class idu extends Module {
   io.regin.rs   := reg_rs
   io.regin.rt   := reg_rt
   idu_data.pc   := pc
-  idu_data.srca := io.regout.rs
-  idu_data.srcb := Mux(alu_src, imm, io.regout.rt)
-  idu_data.data := io.regout.rt
+  idu_data.srca := Mux(io.bypass.conflict_rs, io.bypass.rsdata, io.regout.rs)
+  idu_data.srcb := Mux(alu_src, imm, Mux(io.bypass.conflict_rt, io.bypass.rtdata, io.regout.rt))
+  idu_data.data := Mux(io.bypass.conflict_rs, io.bypass.rsdata, io.regout.rs)
 
 /****************************** contr ******************************/
   idu_contr.alu_op := Lookup(inst, alu_nop, Array(
@@ -375,7 +382,7 @@ class idu extends Module {
     JR      -> true.B,
     JALR    -> true.B
   ))
-  idu_contr.jaddr := Lookup(inst, io.regout.rs, Array(
+  idu_contr.jaddr := Lookup(inst, Mux(io.bypass.conflict_rs, io.bypass.rsdata, io.regout.rs), Array(
     J       -> Cat(npc(31, 28), imm(25, 0), 0.U(2.W)),
     JAL     -> Cat(npc(31, 28), imm(25, 0), 0.U(2.W))
   ))
@@ -436,9 +443,11 @@ class idu extends Module {
   ))
 
 /****************************** conf ******************************/
-  idu_conf.rs := reg_rs
-  idu_conf.rt := reg_rt
-  idu_conf.rd := Mux(idu_contr.reg_write, reg_rd, 0.U)
+  idu_conf.rs      := reg_rs
+  idu_conf.rt      := reg_rt
+  idu_conf.rd      := Mux(idu_contr.reg_write, reg_rd, 0.U)
+  idu_conf.rdvalid := false.B
+  idu_conf.rddata  := 0.U
 
 /****************************** intr ******************************/
   idu_intr.instrd   := in.bits.intr.instrd
