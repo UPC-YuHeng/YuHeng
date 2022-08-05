@@ -144,15 +144,22 @@ class dcache extends Module {
       }.otherwise {
         lru(rbuf.index)   := Mux(hit_tag0, 1.U, 0.U)
         when(~rbuf.op) {
-          io.cout.rdata   := Mux(hit_tag0, data0, data1)
+          val rdata = MuxLookup(reg_paddr(1, 0), 0.U, Array(
+            0.U -> Mux(hit_tag0, data0, data1)(31, 0),
+            1.U -> Mux(hit_tag0, data0, data1)(31, 8),
+            2.U -> Mux(hit_tag0, data0, data1)(31, 16),
+            3.U -> Mux(hit_tag0, data0, data1)(31, 24)
+          ))
+          io.cout.rdata   := rdata
           io.cout.data_ok := true.B
           cstate          := idle
         }.otherwise{
           when(hit_tag0) {
-            val data_w0 = Cat(Mux(rbuf.wstrb(3), rbuf.wdata(31, 24), data0(31, 24)),
-              Mux(rbuf.wstrb(2), rbuf.wdata(23, 16), data0(23, 16)),
-              Mux(rbuf.wstrb(1), rbuf.wdata(15, 8),  data0(15, 8)),
-              Mux(rbuf.wstrb(0), rbuf.wdata(7, 0),   data0(7, 0))
+            val wstrb = (rbuf.wstrb << reg_paddr(1, 0))
+            val data_w0 = Cat(Mux(wstrb(3), rbuf.wdata(31, 24), data0(31, 24)),
+              Mux(wstrb(2), rbuf.wdata(23, 16), data0(23, 16)),
+              Mux(wstrb(1), rbuf.wdata(15, 8),  data0(15, 8)),
+              Mux(wstrb(0), rbuf.wdata(7, 0),   data0(7, 0))
             )
             
             way0_bank(rbuf.offset(4,2)).addra := rbuf.index
@@ -162,10 +169,11 @@ class dcache extends Module {
 
             dir0(rbuf.index) := 1.U
           }.otherwise {
-            val data_w1 = Cat(Mux(rbuf.wstrb(3), rbuf.wdata(31, 24), data1(31, 24)),
-              Mux(rbuf.wstrb(2), rbuf.wdata(23, 16), data1(23, 16)),
-              Mux(rbuf.wstrb(1), rbuf.wdata(15, 8),  data1(15, 8)),
-              Mux(rbuf.wstrb(0), rbuf.wdata(7, 0),   data1(7, 0))
+            val wstrb = (rbuf.wstrb << reg_paddr(1, 0))
+            val data_w1 = Cat(Mux(wstrb(3), rbuf.wdata(31, 24), data1(31, 24)),
+              Mux(wstrb(2), rbuf.wdata(23, 16), data1(23, 16)),
+              Mux(wstrb(1), rbuf.wdata(15, 8),  data1(15, 8)),
+              Mux(wstrb(0), rbuf.wdata(7, 0),   data1(7, 0))
             )
 
             way1_bank(rbuf.offset(4,2)).addra := rbuf.index
@@ -261,7 +269,13 @@ class dcache extends Module {
     }
     is(refill_end)
     {
-      io.cout.rdata   := reg_rdata
+      val rdata = MuxLookup(reg_paddr(1, 0), 0.U, Array(
+        0.U -> reg_rdata(31, 0),
+        1.U -> reg_rdata(31, 8),
+        2.U -> reg_rdata(31, 16),
+        3.U -> reg_rdata(31, 24)
+      ))
+      io.cout.rdata   := rdata
       io.cout.data_ok := true.B
       cstate := idle
     }

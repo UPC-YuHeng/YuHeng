@@ -61,21 +61,13 @@ class mem extends Module {
   io.rin.en    := bin.ready & mem_en & ~valid
   io.rin.wen   := Mux(bin.bits.contr.mem_write,
     MuxLookup(bin.bits.contr.mem_mask, 0.U, Array(
-      1.U -> MuxLookup(bin.bits.data.dest(1, 0), 0.U, Array(
-        "b00".U -> "b0001".U,
-        "b01".U -> "b0010".U,
-        "b10".U -> "b0100".U,
-        "b11".U -> "b1000".U,
-      )),
-      2.U -> MuxLookup(bin.bits.data.dest(1, 0), 0.U, Array(
-        "b00".U -> "b0011".U,
-        "b10".U -> "b1100".U
-      )),
+      1.U -> "b0001".U,
+      2.U -> "b0011".U,
       3.U -> "b1111".U
     )),
     0.U
   )
-  io.rin.addr  := Cat(bin.bits.data.dest(31, 2), 0.U(2.W))
+  io.rin.addr  := bin.bits.data.dest
   io.rin.wdata := MuxLookup(bin.bits.contr.mem_mask, 0.U, Array(
     1.U -> Fill(4, bin.bits.data.data( 7, 0)),
     2.U -> Fill(2, bin.bits.data.data(15, 0)),
@@ -83,16 +75,8 @@ class mem extends Module {
   ))
 
   val rdata = MuxLookup(bin.bits.contr.mem_mask, 0.U, Array(
-    1.U -> MuxLookup(bin.bits.data.dest(1, 0), 0.U, Array(
-        "b00".U -> Cat(Fill(24, io.rout.rdata( 7) & bin.bits.contr.signed.asUInt()), io.rout.rdata( 7,  0)),
-        "b01".U -> Cat(Fill(24, io.rout.rdata(15) & bin.bits.contr.signed.asUInt()), io.rout.rdata(15,  8)),
-        "b10".U -> Cat(Fill(24, io.rout.rdata(23) & bin.bits.contr.signed.asUInt()), io.rout.rdata(23, 16)),
-        "b11".U -> Cat(Fill(24, io.rout.rdata(31) & bin.bits.contr.signed.asUInt()), io.rout.rdata(31, 24))
-    )),
-    2.U -> MuxLookup(bin.bits.data.dest(1, 0), 0.U, Array(
-        "b00".U -> Cat(Fill(16, io.rout.rdata(15) & bin.bits.contr.signed.asUInt()), io.rout.rdata(15,  0)),
-        "b10".U -> Cat(Fill(16, io.rout.rdata(31) & bin.bits.contr.signed.asUInt()), io.rout.rdata(31, 16))
-    )),
+    1.U -> Cat(Fill(24, io.rout.rdata( 7) & bin.bits.contr.signed.asUInt()), io.rout.rdata( 7,  0)),
+    2.U -> Cat(Fill(16, io.rout.rdata(15) & bin.bits.contr.signed.asUInt()), io.rout.rdata(15,  0)),
     3.U -> io.rout.rdata
   ))
 
