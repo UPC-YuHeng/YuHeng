@@ -2,21 +2,6 @@ import chisel3._
 import chisel3.util._
 
 class icache extends Module {
-  class cpu_in extends Bundle{
-    val ucache  =  Bool()
-    val valid   =  Bool()
-    val op      =  Bool()
-    val index   =  UInt(7.W)
-    val tag     =  UInt(20.W)
-    val offset  =  UInt(5.W)
-    val wstrb   =  UInt(4.W)
-    val wdata   =  UInt(32.W)
-  }
-  class cpu_out extends Bundle{
-    val addr_ok =  Bool()
-    val data_ok =  Bool()
-    val rdata   =  UInt(32.W)
-  }
 
   val io = IO(new Bundle{
     val cin      =  Input(new cpu_in())
@@ -77,6 +62,7 @@ class icache extends Module {
   io.aout.rd_req   := false.B
   io.aout.rd_len   := 0.U
   io.aout.rd_addr  := 0.U
+  io.aout.rd_size  := 2.U
   io.aout.wr_req   := false.B
   io.aout.wr_len   := 0.U
   io.aout.wr_addr  := 0.U

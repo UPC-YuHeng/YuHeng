@@ -10,6 +10,7 @@ class axi extends Module {
     val awaddr  = UInt(32.W)
     val awvalid = Bool()
     val rlen    = UInt(8.W)
+    val rsize   = UInt(3.W)
     val wdata   = UInt(256.W)
     val wlen    = UInt(8.W)
     val wen     = UInt(4.W)
@@ -93,6 +94,7 @@ class axi extends Module {
       io.out.araddr   := rbuf.araddr
       io.out.arid     := rbuf.arid
       io.out.arlen    := rbuf.rlen
+      io.out.arsize   := rbuf.rsize
       when(io.in.arready)
       {
         reg_read_num    := 0.U
@@ -172,7 +174,6 @@ class axi extends Module {
   io.out.arlock  := "b00".U
   io.out.arcache := "b0000".U
   io.out.arprot  := "b000".U
-  io.out.arsize  := "b010".U
 
   io.out.awburst := "b01".U
   io.out.awlock  := "b00".U

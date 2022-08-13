@@ -97,6 +97,7 @@ class mmu extends Module{
   icache.io.cin.offset := tlb_i.io.out.addr(4, 0)
   icache.io.cin.wstrb  := 0.U
   icache.io.cin.wdata  := 0.U
+  icache.io.cin.rsize  := io.inst_sram.rsize
 
   io.inst_out.valid    := icache.io.cout.data_ok
   io.inst_out.rdata    := icache.io.cout.rdata
@@ -109,6 +110,7 @@ class mmu extends Module{
   dcache.io.cin.offset := tlb_d.io.out.addr(4, 0)
   dcache.io.cin.wstrb  := io.data_sram.wen
   dcache.io.cin.wdata  := io.data_sram.wdata
+  dcache.io.cin.rsize  := io.data_sram.rsize
 
   io.data_out.valid    := dcache.io.cout.data_ok
   io.data_out.rdata    := dcache.io.cout.rdata
@@ -131,6 +133,7 @@ class mmu extends Module{
   axi.io.data_in.araddr  := axi_sram.rd_addr
   axi.io.data_in.arvalid := axi_sram.rd_req
   axi.io.data_in.rlen    := axi_sram.rd_len
+  axi.io.data_in.rsize   := axi_sram.rd_size
 
   axi.io.data_in.awid    := 3.U
   axi.io.data_in.awaddr  := dcache.io.aout.wr_addr
@@ -138,7 +141,7 @@ class mmu extends Module{
   axi.io.data_in.wlen    := dcache.io.aout.wr_len
   axi.io.data_in.wen     := dcache.io.aout.wr_wstrb
   axi.io.data_in.wdata   := dcache.io.aout.wr_data
-  
+
   icache.io.ain.ret_last := (axi.io.data_out.rid === 1.U & axi.io.data_out.rlast)
   dcache.io.ain.ret_last := (axi.io.data_out.rid === 2.U & axi.io.data_out.rlast)
 

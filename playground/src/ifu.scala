@@ -53,6 +53,7 @@ class ifu extends Module {
   io.rin.wen   := 0.U
   io.rin.addr  := bin.bits.data.addr
   io.rin.wdata := 0.U
+  io.rin.rsize := 2.U // 4 bytes
 
   val ifu_intr = Wire(new inst_intr())
   bout.bits.data.pc     := MuxCase(bout.bits.data.pc, Array(

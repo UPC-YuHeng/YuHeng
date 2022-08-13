@@ -329,6 +329,7 @@ class intr_cp0data extends Bundle {
 
 class ram_in extends Bundle {
   val en    = Bool()
+  val rsize = UInt(3.W)  // 0 -> 1 byte, 1 -> 2 bytes, 2 -> 4 bytes
   val wen   = UInt(4.W)
   val addr  = UInt(32.W)
   val wdata = UInt(32.W)
@@ -363,9 +364,28 @@ class axi_out extends Bundle{
   val rd_req    =  Bool()
   val rd_len    =  UInt(5.W)
   val rd_addr   =  UInt(32.W)
+  val rd_size   =  UInt(3.W)
   val wr_req    =  Bool()
   val wr_len    =  UInt(5.W)
   val wr_addr   =  UInt(32.W)
   val wr_wstrb  =  UInt(4.W)
   val wr_data   =  UInt(256.W)
+}
+
+class cpu_in extends Bundle{
+  val ucache  =  Bool()
+  val valid   =  Bool()
+  val op      =  Bool()
+  val index   =  UInt(7.W)
+  val tag     =  UInt(20.W)
+  val offset  =  UInt(5.W)
+  val wstrb   =  UInt(4.W)
+  val wdata   =  UInt(32.W)
+  val rsize   =  UInt(5.W)
+}
+
+class cpu_out extends Bundle{
+  val addr_ok =  Bool()
+  val data_ok =  Bool()
+  val rdata   =  UInt(32.W)
 }

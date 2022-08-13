@@ -174,7 +174,8 @@ class idu extends Module {
     SH      -> rs,
     SW      -> rs,
     MFC0    -> rd,
-    MTC0    -> rd
+    MTC0    -> rd,
+    MUL     -> rs
   ))
   val reg_rt = Lookup(inst, 0.U, Array(
     ADD     -> rt,
@@ -206,7 +207,8 @@ class idu extends Module {
     SH      -> rt,
     SW      -> rt,
     MFC0    -> rd,
-    MTC0    -> rt
+    MTC0    -> rt,
+    MUL     -> rt
   ))
   val reg_rd = Lookup(inst, rd, Array(
     ADDI    -> rt,
@@ -508,6 +510,7 @@ class idu extends Module {
     SW      -> false.B,
     ERET    -> false.B,
     MFC0    -> false.B,
-    MTC0    -> false.B
+    MTC0    -> false.B,
+    MUL     -> false.B
   ))
 }

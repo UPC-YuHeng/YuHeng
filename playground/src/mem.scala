@@ -61,17 +61,30 @@ class mem extends Module {
   io.rin.en    := bin.ready & mem_en & ~valid
   io.rin.wen   := Mux(bin.bits.contr.mem_write,
     MuxLookup(bin.bits.contr.mem_mask, 0.U, Array(
-      1.U -> "b0001".U,
-      2.U -> "b0011".U,
+      1.U -> MuxLookup(bin.bits.data.dest(1, 0), 0.U, Array(
+        "b00".U -> "b0001".U,
+        "b01".U -> "b0010".U,
+        "b10".U -> "b0100".U,
+        "b11".U -> "b1000".U,
+      )),
+      2.U -> MuxLookup(bin.bits.data.dest(1, 0), 0.U, Array(
+        "b00".U -> "b0011".U,
+        "b10".U -> "b1100".U
+      )),
       3.U -> "b1111".U
     )),
     0.U
   )
-  io.rin.addr  := bin.bits.data.dest
+  io.rin.addr  := Mux(bin.bits.contr.mem_write, Cat(bin.bits.data.dest(31, 2), 0.U(2.W)), bin.bits.data.dest)
   io.rin.wdata := MuxLookup(bin.bits.contr.mem_mask, 0.U, Array(
     1.U -> Fill(4, bin.bits.data.data( 7, 0)),
     2.U -> Fill(2, bin.bits.data.data(15, 0)),
     3.U -> bin.bits.data.data
+  ))
+  io.rin.rsize := MuxLookup(bin.bits.contr.mem_mask, 0.U, Array(
+    1.U -> 0.U,
+    2.U -> 1.U,
+    3.U -> 2.U
   ))
 
   val rdata = MuxLookup(bin.bits.contr.mem_mask, 0.U, Array(

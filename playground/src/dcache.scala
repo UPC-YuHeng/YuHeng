@@ -2,21 +2,6 @@ import chisel3._
 import chisel3.util._
 
 class dcache extends Module {
-  class cpu_in extends Bundle{
-    val ucache  =  Bool()
-    val valid   =  Bool()
-    val op      =  Bool()
-    val index   =  UInt(7.W)
-    val tag     =  UInt(20.W)
-    val offset  =  UInt(5.W)
-    val wstrb   =  UInt(4.W)
-    val wdata   =  UInt(32.W)
-  }
-  class cpu_out extends Bundle{
-    val addr_ok =  Bool()
-    val data_ok =  Bool()
-    val rdata   =  UInt(32.W)
-  }
 
   val io = IO(new Bundle{
     val cin      =  Input(new cpu_in())
@@ -83,6 +68,7 @@ class dcache extends Module {
   io.aout.rd_req   := false.B
   io.aout.rd_len   := 0.U
   io.aout.rd_addr  := 0.U
+  io.aout.rd_size  := 2.U
   io.aout.wr_req   := false.B
   io.aout.wr_len   := 0.U
   io.aout.wr_addr  := 0.U
@@ -155,11 +141,10 @@ class dcache extends Module {
           cstate          := idle
         }.otherwise{
           when(hit_tag0) {
-            val wstrb = (rbuf.wstrb << reg_paddr(1, 0))
-            val data_w0 = Cat(Mux(wstrb(3), rbuf.wdata(31, 24), data0(31, 24)),
-              Mux(wstrb(2), rbuf.wdata(23, 16), data0(23, 16)),
-              Mux(wstrb(1), rbuf.wdata(15, 8),  data0(15, 8)),
-              Mux(wstrb(0), rbuf.wdata(7, 0),   data0(7, 0))
+            val data_w0 = Cat(Mux(rbuf.wstrb(3), rbuf.wdata(31, 24), data0(31, 24)),
+              Mux(rbuf.wstrb(2), rbuf.wdata(23, 16), data0(23, 16)),
+              Mux(rbuf.wstrb(1), rbuf.wdata(15, 8),  data0(15, 8)),
+              Mux(rbuf.wstrb(0), rbuf.wdata(7, 0),   data0(7, 0))
             )
             
             way0_bank(rbuf.offset(4,2)).addra := rbuf.index
@@ -169,11 +154,10 @@ class dcache extends Module {
 
             dir0(rbuf.index) := 1.U
           }.otherwise {
-            val wstrb = (rbuf.wstrb << reg_paddr(1, 0))
-            val data_w1 = Cat(Mux(wstrb(3), rbuf.wdata(31, 24), data1(31, 24)),
-              Mux(wstrb(2), rbuf.wdata(23, 16), data1(23, 16)),
-              Mux(wstrb(1), rbuf.wdata(15, 8),  data1(15, 8)),
-              Mux(wstrb(0), rbuf.wdata(7, 0),   data1(7, 0))
+            val data_w1 = Cat(Mux(rbuf.wstrb(3), rbuf.wdata(31, 24), data1(31, 24)),
+              Mux(rbuf.wstrb(2), rbuf.wdata(23, 16), data1(23, 16)),
+              Mux(rbuf.wstrb(1), rbuf.wdata(15, 8),  data1(15, 8)),
+              Mux(rbuf.wstrb(0), rbuf.wdata(7, 0),   data1(7, 0))
             )
 
             way1_bank(rbuf.offset(4,2)).addra := rbuf.index
@@ -286,6 +270,7 @@ class dcache extends Module {
       when((~rbuf.op) & io.ain.rd_rdy) {
         io.aout.rd_addr := reg_paddr
         io.aout.rd_len  := 0.U
+        io.aout.rd_size := rbuf.rsize
         cstate          := pass_wait
       }
       when(rbuf.op & io.ain.wr_rdy) {
@@ -300,7 +285,12 @@ class dcache extends Module {
     {
       when((~rbuf.op) & io.ain.rd_valid) {
         io.cout.data_ok := true.B
-        io.cout.rdata   := io.ain.ret_rdata
+        io.cout.rdata   := MuxLookup(reg_paddr(1, 0), 0.U, Array(
+          0.U -> io.ain.ret_rdata,
+          1.U -> io.ain.ret_rdata(31, 8),
+          2.U -> io.ain.ret_rdata(31, 16),
+          3.U -> io.ain.ret_rdata(31, 24)
+        ))
         cstate          := idle
       }
       when(rbuf.op & io.ain.wr_valid) {
