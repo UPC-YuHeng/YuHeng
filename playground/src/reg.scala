@@ -15,10 +15,10 @@ class reg extends Module {
     val debug_wb = Output(new debug_io())
   })
 
-  val in = io.in
-  val pc = in.bits.data.pc
-
   io.in.ready := true.B
+
+  val in = Mux(io.in.valid & io.in.ready, io.in.bits, Reg(new reg_in()))
+  val pc = in.data.pc
 
   val reg    = RegInit(VecInit(Seq.fill(32)(0.U(32.W))))
   val reg_hi = RegInit(0.U(32.W))
@@ -30,32 +30,32 @@ class reg extends Module {
   // intr-read
   io.outb.rt := reg(io.inb.rt)
 
-  val reg_en = Mux(io.flush, false.B, in.bits.contr.reg_write)
-  val hi_en  = Mux(io.flush, false.B, in.bits.contr.hi_write)
-  val lo_en  = Mux(io.flush, false.B, in.bits.contr.lo_write)
-  val wdata = MuxCase(in.bits.data.data, Array(
-    in.bits.contr.hi_read  -> reg_hi,
-    in.bits.contr.lo_read  -> reg_lo,
-    in.bits.contr.link     -> (pc + 8.U),
-    in.bits.contr.cp0_read -> io.cp0_data
+  val reg_en = Mux(io.flush, false.B, in.contr.reg_write)
+  val hi_en  = Mux(io.flush, false.B, in.contr.hi_write)
+  val lo_en  = Mux(io.flush, false.B, in.contr.lo_write)
+  val wdata = MuxCase(in.data.data, Array(
+    in.contr.hi_read  -> reg_hi,
+    in.contr.lo_read  -> reg_lo,
+    in.contr.link     -> (pc + 8.U),
+    in.contr.cp0_read -> io.cp0_data
   ))
 
   // normal regs
   when (reg_en) {
-    reg(in.bits.data.addr) := wdata
+    reg(in.data.addr) := wdata
   }
   reg(0) := 0.U
   // hilo regs
   when (hi_en) {
-    reg_hi := in.bits.data.hi
+    reg_hi := in.data.hi
   }
   when (lo_en) {
-    reg_lo := in.bits.data.lo
+    reg_lo := in.data.lo
   }
 
   // debug io
   io.debug_wb.pc       := pc
   io.debug_wb.rf_wen   := Fill(4, reg_en)
-  io.debug_wb.rf_wnum  := in.bits.data.addr
+  io.debug_wb.rf_wnum  := in.data.addr
   io.debug_wb.rf_wdata := wdata
 }

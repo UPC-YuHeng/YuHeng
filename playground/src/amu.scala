@@ -14,6 +14,7 @@ class amu extends Module {
   val pre_pc = RegInit("hbfc00000".U(32.W))
 
   pc := MuxCase(pc, Array(
+    in.intr.refill  -> (Mux(out.ready, 4.U, 0.U) + "hbfc00200".U),
     in.intr.intr    -> (Mux(out.ready, 4.U, 0.U) + "hbfc00380".U),
     in.intr.eret    -> (Mux(out.ready, 4.U, 0.U) + in.intr.eaddr),
     in.contr.branch -> in.contr.baddr,
@@ -24,6 +25,7 @@ class amu extends Module {
 
   out.valid := true.B
   out.bits.data.addr := MuxCase(pre_pc, Array(
+    in.intr.refill  -> "hbfc00200".U,
     in.intr.intr    -> "hbfc00380".U,
     in.intr.eret    -> in.intr.eaddr,
     out.ready       -> pc

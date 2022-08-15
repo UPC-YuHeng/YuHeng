@@ -20,21 +20,24 @@ class cpu extends Module {
   val mem   = Module(new mem())
 
   // conflict
-  val cidu  = idu.io.conf
-  val cexu  = idu.io.out.bits.conf
-  val cmem1 = exu.io.out.bits.conf
-  val cmem2 = mem.io.out.bits.conf1
-  val creg  = mem.io.out.bits.conf2
-  val conflict_exu  = cexu.rd.orR  & (cidu.rs === cexu.rd  | cidu.rt === cexu.rd)
-  val conflict_mem1 = cmem1.rd.orR & (cidu.rs === cmem1.rd | cidu.rt === cmem1.rd)
-  val conflict_mem2 = cmem2.rd.orR & (cidu.rs === cmem2.rd | cidu.rt === cmem2.rd)
-  val conflict_reg  = creg.rd.orR  & (cidu.rs === creg.rd  | cidu.rt === creg.rd)
-  val conflict      = conflict_exu | conflict_mem1 | conflict_mem2 | conflict_reg
+  val cidu = idu.io.conf
+  val cexu = idu.io.out.bits.conf
+  val cmem = exu.io.out.bits.conf
+  val creg = mem.io.out.bits.conf
+  val conflict_exu = cexu.rd.orR & (cidu.rs === cexu.rd | cidu.rt === cexu.rd)
+  val conflict_mem = cmem.rd.orR & (cidu.rs === cmem.rd | cidu.rt === cmem.rd)
+  val conflict_reg = creg.rd.orR & (cidu.rs === creg.rd | cidu.rt === creg.rd)
+  val conflict     = conflict_exu | conflict_mem | conflict_reg
 
   // intr
   val eint = Mux(mem.io.out.valid & reg.io.in.ready,
     cp0.io.status.cp0_intr & (~cp0.io.status.exl) & cp0.io.status.ie,
     false.B
+  )
+  val tlb_intr = (
+    mem.io.out.bits.intr.tlbs |
+    mem.io.out.bits.intr.tlbl |
+    mem.io.out.bits.intr.tlbd
   )
   val intr = (
     mem.io.out.bits.intr.instrd |
@@ -44,6 +47,7 @@ class cpu extends Module {
     mem.io.out.bits.intr.breakpt |
     mem.io.out.bits.intr.reserved |
     mem.io.out.bits.intr.exceed |
+    tlb_intr |
     eint
   )
 
@@ -51,6 +55,8 @@ class cpu extends Module {
   mmu.io.inst_sram := ifu.io.rin
   mmu.io.data_sram := mem.io.rin
   mmu.io.in        := io.axi_in
+  mmu.io.tlb_contr := cp0.io.tlb_contr
+  cp0.io.tlb_data  := mmu.io.tlb_data
   io.axi_out       := mmu.io.out
 
   // amu
@@ -59,13 +65,15 @@ class cpu extends Module {
   amu.io.in.contr.jump   := idu.io.out.bits.contr.jump
   amu.io.in.contr.jaddr  := idu.io.out.bits.contr.jaddr
   amu.io.in.intr.intr    := intr
+  amu.io.in.intr.refill  := mem.io.out.bits.intr.refill
   amu.io.in.intr.eret    := mem.io.out.bits.intr.eret
   amu.io.in.intr.eaddr   := cp0.io.status.epc
   
   // ifu
   ifu.io.in     <> amu.io.out
   ifu.io.rout   := mmu.io.inst_out
-  ifu.io.flush  := intr | mem.io.out.bits.intr.eret
+  ifu.io.flush  := intr | tlb_intr | mem.io.out.bits.intr.eret
+  ifu.io.tlb_intr := mmu.io.tlb_ifu_intr
 
   // idu
   idu.io.in     <> ifu.io.out
@@ -81,10 +89,11 @@ class cpu extends Module {
   mem.io.in     <> exu.io.out
   mem.io.rout   <> mmu.io.data_out
   mem.io.flush  := intr | mem.io.out.bits.intr.eret
-  
+  mem.io.tlb_intr := mmu.io.tlb_mem_intr
+
   // reg
   reg.io.ina      := idu.io.regin
-  reg.io.inb.rt   := mem.io.out.bits.conf2.rt
+  reg.io.inb.rt   := mem.io.out.bits.conf.rt
   reg.io.in       <> mem.io.out
   reg.io.cp0_data := cp0.io.out.data
   reg.io.flush    := intr | mem.io.out.bits.intr.eret
@@ -95,10 +104,13 @@ class cpu extends Module {
     mem.io.out.valid & reg.io.in.ready
   )
   // cp0
-  cp0.io.in.rd         := mem.io.out.bits.conf2.rs      // decoding rs -> rd while dealing with cp0
+  cp0.io.in.rd         := mem.io.out.bits.conf.rs       // decoding rs -> rd while dealing with cp0
   cp0.io.in.sel        := 0.U                           // no use for now
   cp0.io.in.data       := reg.io.outb.rt
   cp0.io.contr.write   := mem.io.out.bits.contr.cp0_write
+  cp0.io.contr.tlbr    := mem.io.out.bits.contr.tlbr
+  cp0.io.contr.tlbp    := mem.io.out.bits.contr.tlbp
+  cp0.io.contr.tlbwi   := mem.io.out.bits.contr.tlbwi
   cp0.io.intr.intr     := intr
   cp0.io.intr.eint     := io.int
   cp0.io.intr.branch   := branch_delay
@@ -111,7 +123,12 @@ class cpu extends Module {
   cp0.io.intr.eret     := mem.io.out.bits.intr.eret
   cp0.io.intr.epc      := Mux(branch_delay, mem.io.out.bits.data.pc - 4.U, mem.io.out.bits.data.pc)
   cp0.io.intr.vaddr    := mem.io.out.bits.intr.vaddr
-
+  cp0.io.intr.tlbs     := mem.io.out.bits.intr.tlbs
+  cp0.io.intr.tlbl     := mem.io.out.bits.intr.tlbl
+  cp0.io.intr.tlbd     := mem.io.out.bits.intr.tlbd
+  cp0.io.intr.tlb_vaddr:= mem.io.out.bits.intr.tlb_vaddr
+  cp0.io.intr.tlb_vpn2 := mem.io.out.bits.intr.tlb_vpn2
+  
   // debug_io
   io.debug_wb   := reg.io.debug_wb
 }

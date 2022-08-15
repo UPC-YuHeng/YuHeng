@@ -175,7 +175,7 @@ class idu extends Module {
     SW      -> rs,
     MFC0    -> rd,
     MTC0    -> rd,
-    MUL     -> rs
+	  MUL     -> rs
   ))
   val reg_rt = Lookup(inst, 0.U, Array(
     ADD     -> rt,
@@ -208,7 +208,7 @@ class idu extends Module {
     SW      -> rt,
     MFC0    -> rd,
     MTC0    -> rt,
-    MUL     -> rt
+	  MUL     -> rt
   ))
   val reg_rd = Lookup(inst, rd, Array(
     ADDI    -> rt,
@@ -296,16 +296,16 @@ class idu extends Module {
     SH      -> true.B,
     SW      -> true.B
   ))
-  idu_contr.mem_mask := Lookup(inst, 0.U, Array(
-    // 0 -> 0B, 1 -> 1B, 2 -> 2B, 3 -> 4B
-    LB      -> 1.U,
-    LBU     -> 1.U,
-    LH      -> 2.U,
-    LHU     -> 2.U,
-    LW      -> 3.U,
-    SB      -> 1.U,
-    SH      -> 2.U,
-    SW      -> 3.U
+  idu_contr.mem_mask := Lookup(inst, 3.U, Array(
+    // 3 -> 0B, 0 -> 1B, 1 -> 2B, 2 -> 4B
+    LB      -> 0.U,
+    LBU     -> 0.U,
+    LH      -> 1.U,
+    LHU     -> 1.U,
+    LW      -> 2.U,
+    SB      -> 0.U,
+    SH      -> 1.U,
+    SW      -> 2.U
   ))
   idu_contr.reg_write := Lookup(inst, false.B, Array(
     ADD     -> true.B,
@@ -436,7 +436,16 @@ class idu extends Module {
   idu_contr.cp0_write := Lookup(inst, false.B, Array(
     MTC0    -> true.B
   ))
-
+  idu_contr.tlbr := Lookup(inst, false.B, Array(
+    TLBR    -> true.B
+  ))
+  idu_contr.tlbwi := Lookup(inst, false.B, Array(
+    TLBWI   -> true.B
+  ))
+  idu_contr.tlbp := Lookup(inst, false.B, Array(
+    TLBP    -> true.B
+  ))
+  
 /****************************** conf ******************************/
   idu_conf.rs := reg_rs
   idu_conf.rt := reg_rt
@@ -452,7 +461,13 @@ class idu extends Module {
   idu_intr.reserved := reserved
   idu_intr.eret     := eret
   idu_intr.exceed   := false.B
-
+  idu_intr.tlbs     := in.bits.intr.tlbs
+  idu_intr.tlbl     := in.bits.intr.tlbl
+  idu_intr.tlbd     := in.bits.intr.tlbd
+  idu_intr.refill   := in.bits.intr.refill
+  idu_intr.tlb_vaddr:= in.bits.intr.tlb_vaddr
+  idu_intr.tlb_vpn2 := in.bits.intr.tlb_vpn2
+  
   decoded := Lookup(inst, true.B, Array(
     ADD     -> false.B,
     ADDI    -> false.B,
@@ -511,6 +526,9 @@ class idu extends Module {
     ERET    -> false.B,
     MFC0    -> false.B,
     MTC0    -> false.B,
-    MUL     -> false.B
+	  MUL     -> false.B,
+    TLBR    -> false.B,
+    TLBP    -> false.B,
+    TLBWI   -> false.B
   ))
 }

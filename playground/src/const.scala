@@ -68,6 +68,10 @@ object InstructionList {
   val MFC0    = BitPat("b010000 00000 ????? ????? 00000 000???")
   val MTC0    = BitPat("b010000 00100 ????? ????? 00000 000???")
   val MUL     = BitPat("b011100 ????? ????? ????? 00000 000010")
+  //TLB
+  val TLBR    = BitPat("b010000 10000 00000 00000 00000 000001")
+  val TLBWI   = BitPat("b010000 10000 00000 00000 00000 000010")
+  val TLBP    = BitPat("b010000 10000 00000 00000 00000 001000")
 }
 
 object ALUOperationList {
@@ -90,6 +94,10 @@ object ALUOperationList {
 }
 
 object CP0RegisterList {
+  val index    = 0.U
+  val entrylo0 = 2.U
+  val entrylo1 = 3.U
+  val entryhi  = 10.U
   val badvaddr = 8.U
   val count    = 9.U
   val status   = 12.U
@@ -125,6 +133,10 @@ class inst_contr extends Bundle {
   // cp0
   val cp0_read  = Bool()
   val cp0_write = Bool()
+  // tlb
+  val tlbr      = Bool()
+  val tlbwi     = Bool()
+  val tlbp      = Bool()
 }
 
 class conflict_data extends Bundle {
@@ -146,6 +158,12 @@ class inst_intr extends Bundle {
   val reserved  = Bool()
   val eret      = Bool()
   val exceed    = Bool()
+  val tlbs      = Bool()
+  val tlbd      = Bool()
+  val tlbl      = Bool()
+  val refill    = Bool()
+  val tlb_vaddr = UInt(32.W)
+  val tlb_vpn2  = UInt(19.W)
 }
 
 /******************** reg ********************/
@@ -175,6 +193,7 @@ class amu_intr extends Bundle {
   val intr   = Bool()
   val eret   = Bool()
   val eaddr  = UInt(32.W)
+  val refill = Bool()
 }
 class amu_in extends Bundle {
   val contr  = new amu_contr()
@@ -267,8 +286,7 @@ class mem_in extends Bundle {
 class mem_out extends Bundle {
   val data  = new reg_info()
   val contr = new inst_contr()
-  val conf1 = new conflict_data()
-  val conf2 = new conflict_data()
+  val conf  = new conflict_data()
   val intr  = new inst_intr()
 }
 
@@ -277,8 +295,7 @@ class mem_out extends Bundle {
 class reg_in extends Bundle {
   val data  = new reg_info()
   val contr = new inst_contr()
-  val conf1 = new conflict_data()
-  val conf2 = new conflict_data()
+  val conf  = new conflict_data()
   val intr  = new inst_intr()
 }
 
@@ -286,20 +303,28 @@ class reg_in extends Bundle {
 
 class cp0_contr extends Bundle {
   val write = Bool()
+  val tlbr  = Bool()  
+  val tlbp  = Bool()  
+  val tlbwi = Bool() 
 }
 class cp0_intr extends Bundle {
-  val intr     = Bool()
-  val eint     = UInt(6.W)
-  val branch   = Bool()
-  val addrrd   = Bool()
-  val addrwt   = Bool()
-  val exceed   = Bool()
-  val syscall  = Bool()
-  val breakpt  = Bool()
-  val reserved = Bool()
-  val eret     = Bool()
-  val epc      = UInt(32.W)
-  val vaddr    = UInt(32.W)
+  val intr      = Bool()
+  val eint      = UInt(6.W)
+  val branch    = Bool()
+  val addrrd    = Bool()
+  val addrwt    = Bool()
+  val exceed    = Bool()
+  val syscall   = Bool()
+  val breakpt   = Bool()
+  val reserved  = Bool()
+  val eret      = Bool()
+  val tlbl      = Bool()
+  val tlbs      = Bool()
+  val tlbd      = Bool()
+  val epc       = UInt(32.W)
+  val vaddr     = UInt(32.W)
+  val tlb_vaddr = UInt(32.W)
+  val tlb_vpn2  = UInt(19.W)
 }
 class cp0_status extends Bundle {
   val epc      = UInt(32.W)
@@ -334,6 +359,7 @@ class ram_in extends Bundle {
   val addr  = UInt(32.W)
   val wdata = UInt(32.W)
 }
+
 class ram_out extends Bundle {
   val valid = Bool()
   val rdata = UInt(32.W)
@@ -372,6 +398,7 @@ class axi_out extends Bundle{
   val wr_data   =  UInt(256.W)
 }
 
+
 class cpu_in extends Bundle{
   val ucache  =  Bool()
   val valid   =  Bool()
@@ -388,4 +415,71 @@ class cpu_out extends Bundle{
   val addr_ok =  Bool()
   val data_ok =  Bool()
   val rdata   =  UInt(32.W)
+}
+
+
+/******************* TLB ********************/
+
+class tlb_p extends Bundle {
+  val vaddr   = UInt(32.W)
+  val rd      = Bool()
+  val intr_en = Bool()
+  val vpn2    = UInt(19.W)
+  val odd     = UInt(1.W)
+  val asid    = UInt(8.W)
+}
+
+class tlb_pout extends Bundle {
+  val found = Bool()
+  val c     = UInt(3.W)
+  val v     = UInt(1.W)
+  val d     = UInt(1.W)
+  val pfn   = UInt(20.W)
+  val index = UInt(5.W)
+}
+
+class tlb_r extends Bundle {
+  val index = UInt(5.W)
+}
+
+class tlb_w extends Bundle {
+  val we    = Bool()
+  val index = UInt(5.W)
+}
+
+class tlb_rw extends Bundle {
+  val vpn2 = UInt(19.W)
+  val asid = UInt(8.W)
+  val c0   = UInt(3.W)
+  val v0   = UInt(1.W)
+  val d0   = UInt(1.W)
+  val g0   = UInt(1.W)
+  val pfn0 = UInt(20.W)
+  val c1   = UInt(3.W)
+  val v1   = UInt(1.W)
+  val d1   = UInt(1.W)
+  val g1   = UInt(1.W)
+  val pfn1 = UInt(20.W)
+}
+
+class tlb_intr extends Bundle {
+  val intr   = Bool()
+  val tlbs   = Bool()
+  val tlbd   = Bool()
+  val tlbl   = Bool()
+  val refill = Bool()
+  val vaddr  = UInt(32.W)
+  val vpn2   = UInt(19.W)
+}
+
+class tlb_contr extends Bundle {
+  val tlb_p  = new tlb_p()
+  val tlb_r  = new tlb_r()
+  val tlb_w  = new tlb_w()
+  val tlb_rw = new tlb_rw()
+}
+
+class tlb_data extends Bundle {
+  val tlb_rw   = new tlb_rw()
+  val tlb_pout = new tlb_pout()
 }

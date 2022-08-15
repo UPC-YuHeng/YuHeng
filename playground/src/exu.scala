@@ -131,11 +131,14 @@ class exu extends Module {
   exu_contr.signed    := in.bits.contr.signed
   exu_contr.cp0_read  := in.bits.contr.cp0_read
   exu_contr.cp0_write := in.bits.contr.cp0_write
-
+  exu_contr.tlbr      := in.bits.contr.tlbr
+  exu_contr.tlbp      := in.bits.contr.tlbp
+  exu_contr.tlbwi     := in.bits.contr.tlbwi
+  
 /****************************** conf ******************************/
   exu_conf.rs := in.bits.conf.rs
   exu_conf.rt := in.bits.conf.rt
-  exu_conf.rd := Mux(in.bits.contr.reg_write, in.bits.conf.rd, 0.U)
+  exu_conf.rd := in.bits.conf.rd
 
 /****************************** intr ******************************/
   exu_intr.instrd   := in.bits.intr.instrd
@@ -147,4 +150,10 @@ class exu extends Module {
   exu_intr.reserved := in.bits.intr.reserved
   exu_intr.eret     := in.bits.intr.eret
   exu_intr.exceed   := alu.io.out.exceed
+  exu_intr.tlbs     := in.bits.intr.tlbs
+  exu_intr.tlbl     := in.bits.intr.tlbl
+  exu_intr.tlbd     := in.bits.intr.tlbd
+  exu_intr.refill   := in.bits.intr.refill
+  exu_intr.tlb_vaddr:= in.bits.intr.tlb_vaddr
+  exu_intr.tlb_vpn2 := in.bits.intr.tlb_vpn2
 }

@@ -16,149 +16,154 @@ class mem extends Module {
     val rin   = Output(new ram_in())
     val rout  = Input (new ram_out())
     val flush = Input (Bool())
+	  val tlb_intr = Input(new tlb_intr())
   })
 
   val in  = io.in
   val out = io.out
-
   val bin  = RegInit(Reg(new bin_data()))
   val bout = RegInit(Reg(new bout_data()))
+  val mem_data  = Wire(new reg_info())
+  val mem_contr = Wire(new inst_contr())
+  val mem_conf  = Wire(new conflict_data())
+  val mem_intr  = Wire(new inst_intr())
 
-  val datard = MuxCase(bout.bits.intr.datard, Array(
-    bin.ready -> (bin.bits.contr.mem_read & MuxLookup(bin.bits.contr.mem_mask, false.B, Array(
+
+  val datard_in  = in.bits.contr.mem_read &
+    MuxLookup(in.bits.contr.mem_mask, false.B, Array(
+      2.U -> in.bits.data.dest(0),
+      3.U -> in.bits.data.dest(1, 0).orR
+    ))
+  val datawt_in  = in.bits.contr.mem_write &
+    MuxLookup(in.bits.contr.mem_mask, false.B, Array(
+      2.U -> in.bits.data.dest(0),
+      3.U -> in.bits.data.dest(1, 0).orR
+    ))
+  val datard_bin = bin.bits.contr.mem_read &
+    MuxLookup(bin.bits.contr.mem_mask, false.B, Array(
       2.U -> bin.bits.data.dest(0),
       3.U -> bin.bits.data.dest(1, 0).orR
-    )))
-  ))
-  val datawt  = MuxCase(bout.bits.intr.datawt, Array(
-    bin.ready -> (bin.bits.contr.mem_write & MuxLookup(bin.bits.contr.mem_mask, false.B, Array(
+    ))
+  val datawt_bin = bin.bits.contr.mem_write &
+    MuxLookup(bin.bits.contr.mem_mask, false.B, Array(
       2.U -> bin.bits.data.dest(0),
       3.U -> bin.bits.data.dest(1, 0).orR
-    )))
-  ))
+    ))
+  val intr_in  = datard_in  | datawt_in
+  val intr_bin = datard_bin | datawt_bin
+  val mem_in   = in.bits.contr.mem_read  | in.bits.contr.mem_write 
+  val mem_bin  = bin.bits.contr.mem_read | bin.bits.contr.mem_write
+  val valid    = io.rout.valid | bout.valid
 
-  val mem_en = (bin.bits.contr.mem_read | bin.bits.contr.mem_write) & ~(datard | datawt)
-
-  val intr   = datard | datawt
-  val valid  = io.rout.valid | bout.valid
+  in.ready := (out.valid & out.ready) | ~bin.ready
 
   val flush = RegInit(false.B)
   val clear = flush | io.flush
-  flush := ~valid & ~(bin.ready & ~mem_en) & clear
-
-  in.ready := ~bin.ready
+  flush := ~valid & clear
 
   bin.ready := MuxCase(bin.ready, Array(    // low active
-    (io.rout.valid & clear) -> false.B,
+    (valid & clear)         -> false.B,
     (in.valid & in.ready)   -> true.B,
-    (out.valid & out.ready) -> false.B,
+    (out.valid & out.ready) -> false.B
   ))
   bin.bits  := MuxCase(bin.bits, Array(
     (in.valid & in.ready)   -> in.bits,
     (out.valid & out.ready) -> Reg(new mem_in())
   ))
 
-  io.rin.en    := bin.ready & mem_en & ~valid
-  io.rin.wen   := Mux(bin.bits.contr.mem_write,
-    MuxLookup(bin.bits.contr.mem_mask, 0.U, Array(
-      1.U -> MuxLookup(bin.bits.data.dest(1, 0), 0.U, Array(
+  io.rin.en    := ((in.ready & mem_in & ~intr_in) | (bin.ready & mem_bin & ~intr_bin)) & ~valid
+  io.rin.wen   := MuxCase(0.U, Array(
+    (in.ready & in.bits.contr.mem_write)   -> MuxLookup(in.bits.contr.mem_mask, 0.U, Array(
+      0.U -> MuxLookup(in.bits.data.dest(1, 0), 0.U, Array(
         "b00".U -> "b0001".U,
         "b01".U -> "b0010".U,
         "b10".U -> "b0100".U,
         "b11".U -> "b1000".U,
       )),
-      2.U -> MuxLookup(bin.bits.data.dest(1, 0), 0.U, Array(
+      1.U -> MuxLookup(in.bits.data.dest(1, 0), 0.U, Array(
         "b00".U -> "b0011".U,
         "b10".U -> "b1100".U
       )),
-      3.U -> "b1111".U
+      2.U -> "b1111".U
     )),
-    0.U
+    (bin.ready & bin.bits.contr.mem_write) -> MuxLookup(bin.bits.contr.mem_mask, 0.U, Array(
+      0.U -> MuxLookup(bin.bits.data.dest(1, 0), 0.U, Array(
+        "b00".U -> "b0001".U,
+        "b01".U -> "b0010".U,
+        "b10".U -> "b0100".U,
+        "b11".U -> "b1000".U,
+      )),
+      1.U -> MuxLookup(bin.bits.data.dest(1, 0), 0.U, Array(
+        "b00".U -> "b0011".U,
+        "b10".U -> "b1100".U
+      )),
+      2.U -> "b1111".U
+    ))
+  ))
+  io.rin.addr  := Mux(in.ready,
+    Mux(in.bits.contr.mem_write,  Cat(in.bits.data.dest(31, 2), 0.U(2.W)),  in.bits.data.dest),
+    Mux(bin.bits.contr.mem_write, Cat(bin.bits.data.dest(31, 2), 0.U(2.W)), bin.bits.data.dest)
   )
-  io.rin.addr  := Mux(bin.bits.contr.mem_write, Cat(bin.bits.data.dest(31, 2), 0.U(2.W)), bin.bits.data.dest)
-  io.rin.wdata := MuxLookup(bin.bits.contr.mem_mask, 0.U, Array(
-    1.U -> Fill(4, bin.bits.data.data( 7, 0)),
-    2.U -> Fill(2, bin.bits.data.data(15, 0)),
-    3.U -> bin.bits.data.data
+  io.rin.wdata := MuxCase(0.U, Array(
+    in.ready  -> MuxLookup(in.bits.contr.mem_mask, 0.U, Array(
+      0.U -> Fill(4, in.bits.data.data( 7, 0)),
+      1.U -> Fill(2, in.bits.data.data(15, 0)),
+      2.U -> in.bits.data.data
+    )),
+    bin.ready -> MuxLookup(bin.bits.contr.mem_mask, 0.U, Array(
+      0.U -> Fill(4, bin.bits.data.data( 7, 0)),
+      1.U -> Fill(2, bin.bits.data.data(15, 0)),
+      2.U -> bin.bits.data.data
+    ))
   ))
-  io.rin.rsize := MuxLookup(bin.bits.contr.mem_mask, 0.U, Array(
-    1.U -> 0.U,
-    2.U -> 1.U,
-    3.U -> 2.U
+  io.rin.rsize := Mux(in.ready, in.bits.contr.mem_mask, bin.bits.contr.mem_mask)
+
+  val tlb_intr = io.tlb_intr.tlbs | io.tlb_intr.tlbl | io.tlb_intr.tlbd
+
+  bout.valid      := MuxCase(bout.valid, Array(
+    clear                   -> false.B,
+    (out.valid & out.ready) -> false.B,
+    (bin.ready & ~mem_bin)  -> true.B,
+    (valid | intr_bin | tlb_intr)      -> true.B
+  ))
+  bout.bits.data  := MuxCase(mem_data, Array(
+    clear                   -> Reg(new reg_info()),
+    (out.valid & out.ready) -> Reg(new reg_info()),
+    bout.valid              -> bout.bits.data
+  ))
+  bout.bits.contr := MuxCase(mem_contr, Array(
+    clear                   -> Reg(new inst_contr()),
+    (out.valid & out.ready) -> Reg(new inst_contr()),
+    bout.valid              -> bout.bits.contr
+  ))
+  bout.bits.conf  := Mux(out.valid & out.ready, Reg(new conflict_data()), out.bits.conf)
+  bout.bits.intr  := MuxCase(mem_intr, Array(
+    (out.valid & out.ready) -> Reg(new inst_intr()),
+    bout.valid              -> bout.bits.intr
   ))
 
-  val rdata = MuxLookup(bin.bits.contr.mem_mask, 0.U, Array(
-    1.U -> Cat(Fill(24, io.rout.rdata( 7) & bin.bits.contr.signed.asUInt()), io.rout.rdata( 7,  0)),
-    2.U -> Cat(Fill(16, io.rout.rdata(15) & bin.bits.contr.signed.asUInt()), io.rout.rdata(15,  0)),
-    3.U -> io.rout.rdata
+  out.valid      := bout.valid
+  out.bits.data  := bout.bits.data
+  out.bits.contr := bout.bits.contr
+  out.bits.conf  := MuxCase(mem_conf, Array(
+    clear                   -> Reg(new conflict_data()),
+    bout.valid              -> bout.bits.conf
   ))
+  out.bits.intr  := bout.bits.intr
 
-  val mem_contr = Wire(new inst_contr())
-  val mem_conf1 = Wire(new conflict_data())
-  val mem_conf2 = Wire(new conflict_data())
-  val mem_intr  = Wire(new inst_intr())
-  bout.bits.data.pc := MuxCase(bout.bits.data.pc, Array(
-    clear                   -> 0.U,
-    io.rout.valid           -> bin.bits.data.pc,
-    (out.valid & out.ready) -> 0.U,
-    (bin.ready & ~mem_en)   -> bin.bits.data.pc
-  ))
-  bout.bits.data.addr := MuxCase(bout.bits.data.addr, Array(
-    clear                   -> 0.U,
-    io.rout.valid           -> bin.bits.conf.rd,
-    (out.valid & out.ready) -> 0.U,
-    (bin.ready & ~mem_en)   -> bin.bits.conf.rd
-  ))
-  bout.bits.data.data := MuxCase(bout.bits.data.data, Array(
-    clear                   -> 0.U,
-    io.rout.valid           -> rdata,
-    (out.valid & out.ready) -> 0.U,
-    (bin.ready & ~mem_en)   -> bin.bits.data.dest
-  ))
-  bout.bits.data.hi := MuxCase(bout.bits.data.hi, Array(
-    clear                   -> 0.U,
-    io.rout.valid           -> bin.bits.data.hi,
-    (out.valid & out.ready) -> 0.U,
-    (bin.ready & ~mem_en)   -> bin.bits.data.hi
-  ))
-  bout.bits.data.lo := MuxCase(bout.bits.data.lo, Array(
-    clear                   -> 0.U,
-    io.rout.valid           -> bin.bits.data.lo,
-    (out.valid & out.ready) -> 0.U,
-    (bin.ready & ~mem_en)   -> bin.bits.data.lo
-  ))
-  bout.bits.contr := MuxCase(bout.bits.contr, Array(
-    clear                   -> RegInit(Reg(new inst_contr())),
-    io.rout.valid           -> mem_contr,
-    (out.valid & out.ready) -> RegInit(Reg(new inst_contr())),
-    (bin.ready & ~mem_en)   -> mem_contr
-  ))
-  bout.bits.conf1 :=  MuxCase(bout.bits.conf1, Array(
-    clear                   -> RegInit(Reg(new conflict_data())),
-    (in.valid & in.ready)   -> mem_conf1,
-    (out.valid & out.ready) -> RegInit(Reg(new conflict_data())),
-  ))
-  bout.bits.conf2 :=  MuxCase(bout.bits.conf2, Array(
-    clear                   -> RegInit(Reg(new conflict_data())),
-    io.rout.valid           -> mem_conf2,
-    (out.valid & out.ready) -> RegInit(Reg(new conflict_data())),
-    (bin.ready & ~mem_en)   -> mem_conf2
-  ))
-  bout.bits.intr := MuxCase(bout.bits.intr, Array(
-    clear                   -> RegInit(Reg(new inst_intr())),
-    io.rout.valid           -> mem_intr,
-    (out.valid & out.ready) -> RegInit(Reg(new inst_intr())),
-    (bin.ready & ~mem_en)   -> mem_intr
-  ))
-  bout.valid := MuxCase(bout.valid, Array(
-    clear                    -> false.B,
-    io.rout.valid            -> true.B,
-    (out.valid & out.ready)  -> false.B,
-    (bin.ready & ~mem_en)    -> true.B
-  ))
-
-  out.valid := bout.valid
-  out.bits  := bout.bits
+/****************************** data ******************************/
+  mem_data.pc   := bin.bits.data.pc
+  mem_data.addr := bin.bits.conf.rd
+  mem_data.data := Mux(io.rout.valid,
+    MuxLookup(bin.bits.contr.mem_mask, 0.U, Array(
+      0.U -> Cat(Fill(24, io.rout.rdata( 7) & bin.bits.contr.signed.asUInt()), io.rout.rdata( 7,  0)),
+      1.U -> Cat(Fill(16, io.rout.rdata(15) & bin.bits.contr.signed.asUInt()), io.rout.rdata(15,  0)),
+      2.U -> io.rout.rdata
+    )),
+    bin.bits.data.dest
+  )
+  mem_data.hi := bin.bits.data.hi
+  mem_data.lo := bin.bits.data.lo
 
 /****************************** contr ******************************/
   mem_contr.alu_op    := false.B
@@ -180,23 +185,30 @@ class mem extends Module {
   mem_contr.signed    := bin.bits.contr.signed
   mem_contr.cp0_read  := bin.bits.contr.cp0_read
   mem_contr.cp0_write := bin.bits.contr.cp0_write
-
+  mem_contr.tlbr      := bin.bits.contr.tlbr
+  mem_contr.tlbp      := bin.bits.contr.tlbp
+  mem_contr.tlbwi     := bin.bits.contr.tlbwi
+  
 /****************************** conf ******************************/
-  mem_conf1.rs := in.bits.conf.rs
-  mem_conf1.rt := in.bits.conf.rt
-  mem_conf1.rd := Mux(in.bits.contr.reg_write, in.bits.conf.rd, 0.U)
-  mem_conf2.rs := bout.bits.conf1.rs
-  mem_conf2.rt := bout.bits.conf1.rt
-  mem_conf2.rd := Mux(bin.bits.contr.reg_write, bout.bits.conf1.rd, 0.U)
+  mem_conf.rs := bin.bits.conf.rs
+  mem_conf.rt := bin.bits.conf.rt
+  mem_conf.rd := bin.bits.conf.rd
 
 /****************************** intr ******************************/
+  val ifu_intr = bin.bits.intr.tlbs | bin.bits.intr.tlbl | bin.bits.intr.tlbd
   mem_intr.instrd   := bin.bits.intr.instrd
-  mem_intr.datard   := datard
-  mem_intr.datawt   := datawt
+  mem_intr.datard   := datard_bin
+  mem_intr.datawt   := datawt_bin
   mem_intr.vaddr    := Mux(bin.bits.intr.instrd, bin.bits.intr.vaddr, bin.bits.data.dest)
   mem_intr.syscall  := bin.bits.intr.syscall
   mem_intr.breakpt  := bin.bits.intr.breakpt
   mem_intr.reserved := bin.bits.intr.reserved
   mem_intr.eret     := bin.bits.intr.eret
   mem_intr.exceed   := bin.bits.intr.exceed
+  mem_intr.tlbs     := Mux(ifu_intr, bin.bits.intr.tlbs, io.tlb_intr.tlbs)
+  mem_intr.tlbl     := Mux(ifu_intr, bin.bits.intr.tlbl, io.tlb_intr.tlbl)
+  mem_intr.tlbd     := Mux(ifu_intr, bin.bits.intr.tlbd, io.tlb_intr.tlbd)
+  mem_intr.refill   := Mux(ifu_intr, bin.bits.intr.refill, io.tlb_intr.refill)
+  mem_intr.tlb_vaddr:= Mux(ifu_intr, bin.bits.intr.tlb_vaddr, io.tlb_intr.vaddr)
+  mem_intr.tlb_vpn2 := Mux(ifu_intr, bin.bits.intr.tlb_vpn2, io.tlb_intr.vpn2)
 }

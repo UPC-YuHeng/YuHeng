@@ -16,32 +16,32 @@ class ifu extends Module {
     val rin   = Output(new ram_in())
     val rout  = Input (new ram_out())
     val flush = Input (Bool())
+	  val tlb_intr = Input(new tlb_intr())
   })
 
   val in    = io.in
   val out   = io.out
   val bin   = RegInit(Reg(new bin_data()))
   val bout  = RegInit(Reg(new bout_data()))
+  val ifu_data = Wire(new idu_info())
+  val ifu_intr = Wire(new inst_intr())
 
-  val instrd = MuxCase(bout.bits.intr.instrd, Array(
-    bin.ready -> bin.bits.data.addr(1, 0).orR
-  ))
-
-  val mem_en = ~instrd
-
-  val intr   = instrd
-  val valid  = io.rout.valid | bout.valid
+  val instrd_in  = in.bits.data.addr(1, 0).orR
+  val instrd_bin = bin.bits.data.addr(1, 0).orR
+  val intr_in    = instrd_in
+  val intr_bin   = instrd_bin
+  val valid      = io.rout.valid | bout.valid
+  
+  in.ready := (out.valid & out.ready) | ~bin.ready
 
   val flush = RegInit(false.B)
   val clear = flush | io.flush
-  flush := ~valid & ~(bin.ready & ~mem_en) & clear
-
-  in.ready := ~bin.ready
+  flush := ~valid & clear
 
   bin.ready := MuxCase(bin.ready, Array(    // low active
-    (io.rout.valid & clear) -> false.B,
+    (valid & clear)         -> false.B,
     (in.valid & in.ready)   -> true.B,
-    (out.valid & out.ready) -> false.B,
+    (out.valid & out.ready) -> false.B
   ))
   bin.bits  := MuxCase(bin.bits, Array(
     (in.valid & in.ready)   -> in.bits,
@@ -49,39 +49,37 @@ class ifu extends Module {
   ))
 
   // fetch inst
-  io.rin.en    := bin.ready & mem_en & ~valid
+  io.rin.en    := ((in.ready & ~intr_in) | (bin.ready & ~intr_bin)) & ~valid
   io.rin.wen   := 0.U
-  io.rin.addr  := bin.bits.data.addr
+  io.rin.addr  := Mux(in.ready, in.bits.data.addr, bin.bits.data.addr)
   io.rin.wdata := 0.U
   io.rin.rsize := 2.U // 4 bytes
 
-  val ifu_intr = Wire(new inst_intr())
-  bout.bits.data.pc     := MuxCase(bout.bits.data.pc, Array(
-    clear                   -> 0.U,
-    bin.ready               -> bin.bits.data.addr
+  bout.valid     := MuxCase(bout.valid, Array(
+    clear                   -> false.B,
+    (out.valid & out.ready) -> false.B,
+    (valid | intr_bin | io.tlb_intr.tlbs | io.tlb_intr.tlbd | io.tlb_intr.tlbl)  -> true.B
   ))
-  bout.bits.data.inst   := MuxCase(bout.bits.data.inst, Array(
-    clear                   -> 0.U,
-    instrd                  -> 0.U,
-    io.rout.valid           -> io.rout.rdata
+  bout.bits.data := MuxCase(ifu_data, Array(
+    clear                   -> Reg(new idu_info()),
+    (out.valid & out.ready) -> Reg(new idu_info()),
+    bout.valid              -> bout.bits.data
   ))
-  bout.bits.intr        := MuxCase(bout.bits.intr, Array(
+  bout.bits.intr := MuxCase(ifu_intr, Array(
     clear                   -> Reg(new inst_intr()),
     (out.valid & out.ready) -> Reg(new inst_intr()),
-    bin.ready               -> ifu_intr
+    bout.valid              -> bout.bits.intr
   ))
-  bout.valid            := MuxCase(bout.valid, Array(
-    clear                   -> false.B,
-    instrd                  -> true.B,
-    io.rout.valid           -> true.B,
-    (out.valid & out.ready) -> false.B
-  ))
-  
+
   out.valid := bout.valid
   out.bits  := bout.bits
+
+/****************************** data ******************************/
+  ifu_data.pc   := bin.bits.data.addr
+  ifu_data.inst := io.rout.rdata
   
 /****************************** intr ******************************/
-  ifu_intr.instrd   := instrd
+  ifu_intr.instrd   := instrd_bin
   ifu_intr.datard   := false.B
   ifu_intr.datawt   := false.B
   ifu_intr.vaddr    := bin.bits.data.addr
@@ -90,4 +88,10 @@ class ifu extends Module {
   ifu_intr.reserved := false.B
   ifu_intr.eret     := false.B
   ifu_intr.exceed   := false.B
+  ifu_intr.tlbs     := io.tlb_intr.tlbs
+  ifu_intr.tlbl     := io.tlb_intr.tlbl
+  ifu_intr.tlbd     := io.tlb_intr.tlbd
+  ifu_intr.refill   := io.tlb_intr.refill
+  ifu_intr.tlb_vaddr:= io.tlb_intr.vaddr
+  ifu_intr.tlb_vpn2 := io.tlb_intr.vpn2
 }
